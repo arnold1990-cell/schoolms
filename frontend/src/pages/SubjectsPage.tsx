@@ -48,14 +48,13 @@ export function SubjectsPage() {
       const teachersResponse = await api.get('/api/teachers');
       const teacherRows = unwrapList<Teacher>(teachersResponse.data);
       setTeachers(teacherRows);
-      if (!teacherId && teacherRows[0]) setTeacherId(String(teacherRows[0].id));
     } catch {
       setTeachers([]);
       setTeacherId('');
     } finally {
       setTeachersLoading(false);
     }
-  }, [canCreate, teacherId, teachers.length, teachersLoading]);
+  }, [canCreate, teachers.length, teachersLoading]);
 
   useEffect(() => { void loadSubjects(); }, [loadSubjects]);
 
@@ -65,6 +64,10 @@ export function SubjectsPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!canCreate) {
+      setError('Only admins can create subjects and assign teachers.');
+      return;
+    }
     if (!code.trim() || !name.trim()) {
       setError('Subject code and name are required.');
       return;
