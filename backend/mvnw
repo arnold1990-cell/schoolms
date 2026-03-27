@@ -1,0 +1,77 @@
+#!/usr/bin/env sh
+set -eu
+
+BASE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+WRAPPER_PROPERTIES="$BASE_DIR/.mvn/wrapper/maven-wrapper.properties"
+
+if [ ! -f "$WRAPPER_PROPERTIES" ]; then
+  echo "Missing $WRAPPER_PROPERTIES" >&2
+  exit 1
+fi
+
+distributionUrl=$(sed -n 's/^distributionUrl=//p' "$WRAPPER_PROPERTIES")
+distributionBase=$(sed -n 's/^distributionBase=//p' "$WRAPPER_PROPERTIES")
+distributionPath=$(sed -n 's/^distributionPath=//p' "$WRAPPER_PROPERTIES")
+
+if [ -z "$distributionUrl" ]; then
+  echo "distributionUrl is not configured" >&2
+  exit 1
+fi
+
+case "$distributionBase" in
+  PROJECT|"") base="$BASE_DIR" ;;
+  *)
+    echo "Unsupported distributionBase: $distributionBase" >&2
+    exit 1
+    ;;
+esac
+
+if [ -z "$distributionPath" ]; then
+  distributionPath=".mvn/wrapper/dists"
+fi
+
+DIST_DIR="$base/$distributionPath"
+mkdir -p "$DIST_DIR"
+
+archive_name=$(basename "$distributionUrl")
+archive_path="$DIST_DIR/$archive_name"
+
+if [ ! -f "$archive_path" ]; then
+  echo "Downloading Maven distribution from $distributionUrl"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$distributionUrl" -o "$archive_path"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$archive_path" "$distributionUrl"
+  else
+    echo "Neither curl nor wget is available to download Maven." >&2
+    exit 1
+  fi
+fi
+
+MAVEN_HOME=""
+if command -v unzip >/dev/null 2>&1; then
+  if [ ! -d "$DIST_DIR/apache-maven-3.9.9" ]; then
+    unzip -q -o "$archive_path" -d "$DIST_DIR"
+  fi
+  MAVEN_HOME="$DIST_DIR/apache-maven-3.9.9"
+elif command -v tar >/dev/null 2>&1; then
+  tar_archive="$DIST_DIR/apache-maven-3.9.9-bin.tar.gz"
+  if [ ! -f "$tar_archive" ]; then
+    tar_url=${distributionUrl%.zip}.tar.gz
+    echo "Downloading tar distribution from $tar_url"
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "$tar_url" -o "$tar_archive"
+    else
+      wget -qO "$tar_archive" "$tar_url"
+    fi
+  fi
+  if [ ! -d "$DIST_DIR/apache-maven-3.9.9" ]; then
+    tar -xzf "$tar_archive" -C "$DIST_DIR"
+  fi
+  MAVEN_HOME="$DIST_DIR/apache-maven-3.9.9"
+else
+  echo "Neither unzip nor tar is available to unpack Maven." >&2
+  exit 1
+fi
+
+exec "$MAVEN_HOME/bin/mvn" "$@"

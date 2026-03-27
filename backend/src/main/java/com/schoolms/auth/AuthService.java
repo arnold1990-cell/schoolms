@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -24,11 +25,19 @@ public class AuthService {
         boolean userExists = normalizedEmail != null && userRepository.findByEmail(normalizedEmail).isPresent();
         log.info("Login attempt for email='{}', userExists={}", normalizedEmail, userExists);
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalizedEmail, request.password()));
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(normalizedEmail, request.password()));
+        } catch (AuthenticationException ex) {
+            log.warn("Login failed for email='{}': {}", normalizedEmail, ex.getMessage());
+            throw ex;
+        }
+
         var user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new AppException("User not found", HttpStatus.NOT_FOUND));
         String token = jwtService.generateToken(user.getEmail(), java.util.Map.of("role", user.getRole().name(), "uid", user.getId()));
+        log.info("Login successful for email='{}', role={}", user.getEmail(), user.getRole());
         return new AuthDtos.LoginResponse(token, "Bearer", new AuthDtos.AuthUser(user.getId(), user.getEmail(), user.getRole()));
     }
 
