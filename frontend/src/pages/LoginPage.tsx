@@ -11,8 +11,22 @@ export function LoginPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
     try { await login(email, password); nav('/dashboard'); }
-    catch { setError('Invalid credentials'); }
+    catch (err) {
+      const apiError = err as { response?: { status?: number; data?: { message?: string } } };
+      const status = apiError.response?.status;
+      if (status === 401 || status === 403) {
+        setError('Invalid credentials');
+        return;
+      }
+      const apiMessage = apiError.response?.data?.message;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        setError(apiMessage);
+        return;
+      }
+      setError('Unable to sign in right now. Please try again.');
+    }
   };
 
   return <form className="login" onSubmit={submit}>

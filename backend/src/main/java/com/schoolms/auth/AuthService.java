@@ -23,7 +23,7 @@ public class AuthService {
         var user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new AppException("User not found", HttpStatus.NOT_FOUND));
         String token = jwtService.generateToken(user.getEmail(), java.util.Map.of("role", user.getRole().name(), "uid", user.getId()));
-        return new AuthDtos.LoginResponse(token, user.getEmail(), user.getRole());
+        return new AuthDtos.LoginResponse(token, "Bearer", new AuthDtos.AuthUser(user.getId(), user.getEmail(), user.getRole()));
     }
 
     public AuthDtos.MeResponse me(String email) {

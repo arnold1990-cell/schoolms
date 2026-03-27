@@ -16,13 +16,24 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        userRepository.findByEmail("admin@schoolms.com").orElseGet(() -> {
+        userRepository.findByEmail("admin@schoolms.com").ifPresentOrElse(admin -> {
+            boolean passwordMismatch = !passwordEncoder.matches("Admin123!", admin.getPassword());
+            boolean roleMismatch = admin.getRole() != Role.ADMIN;
+            boolean disabled = !admin.isEnabled();
+
+            if (passwordMismatch || roleMismatch || disabled) {
+                admin.setPassword(passwordEncoder.encode("Admin123!"));
+                admin.setRole(Role.ADMIN);
+                admin.setEnabled(true);
+                userRepository.save(admin);
+            }
+        }, () -> {
             User admin = new User();
             admin.setEmail("admin@schoolms.com");
             admin.setPassword(passwordEncoder.encode("Admin123!"));
             admin.setRole(Role.ADMIN);
             admin.setEnabled(true);
-            return userRepository.save(admin);
+            userRepository.save(admin);
         });
     }
 }

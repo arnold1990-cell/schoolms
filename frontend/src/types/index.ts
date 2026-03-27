@@ -8,6 +8,6 @@ export interface MeResponse {
 
 export interface LoginResponse {
   accessToken: string;
-  email: string;
-  role: Role;
+  tokenType: string;
+  user: MeResponse;
 }
