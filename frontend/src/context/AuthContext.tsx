@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { MeResponse } from '../types';
 import { authService } from '../services/authService';
+import { UNAUTHORIZED_EVENT } from '../services/api';
 
 interface AuthContextType {
   user: MeResponse | null;
@@ -17,7 +18,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
-    if (!token) return setLoading(false);
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     authService.me()
       .then(setUser)
       .catch(() => {
@@ -27,6 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      setLoading(false);
+    };
+
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
+
   const value = useMemo(() => ({
     user,
     loading,
@@ -34,7 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('accessToken');
       const result = await authService.login(email, password);
       localStorage.setItem('accessToken', result.accessToken);
-      setUser({ id: 0, email: result.email, role: result.role });
       const me = await authService.me();
       setUser(me);
       return me;

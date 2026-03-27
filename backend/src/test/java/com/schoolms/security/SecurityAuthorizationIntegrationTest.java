@@ -75,6 +75,23 @@ class SecurityAuthorizationIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+
+    @Test
+    void invalidTokenCannotAccessProtectedEndpoint() throws Exception {
+        mockMvc.perform(get("/api/exams")
+                        .header("Authorization", "Bearer invalid.jwt.token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void validTokenCanAccessMeEndpoint() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
     private void createUser(String email, String password, Role role) {
         User user = new User();
         user.setEmail(email);
