@@ -26,17 +26,30 @@ export function SubjectsPage() {
     setLoading(true);
     setError('');
     try {
-      const [subjectsResponse, teachersResponse] = await Promise.all([api.get('/api/subjects'), api.get('/api/teachers')]);
-      const teacherRows = unwrapList<Teacher>(teachersResponse.data);
+      const subjectsResponse = await api.get('/api/subjects');
       setRows(unwrapList<Subject>(subjectsResponse.data));
+
+      if (!canCreate) {
+        setTeachers([]);
+        setTeacherId('');
+        return;
+      }
+
+      const teachersResponse = await api.get('/api/teachers');
+      const teacherRows = unwrapList<Teacher>(teachersResponse.data);
       setTeachers(teacherRows);
       if (!teacherId && teacherRows[0]) setTeacherId(String(teacherRows[0].id));
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to load subjects.'));
+      const message = apiErrorMessage(err, 'Failed to load subjects.');
+      if (message.toLowerCase().includes('403')) {
+        setError('You do not have permission to access this data. Please sign in with an ADMIN or TEACHER account.');
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
-  }, [teacherId]);
+  }, [canCreate, teacherId]);
 
   useEffect(() => { void load(); }, [load]);
 
