@@ -1,0 +1,58 @@
+package com.schoolms.exam;
+
+import com.schoolms.academicsession.AcademicSessionRepository;
+import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.common.ApiResponse;
+import com.schoolms.subject.SubjectRepository;
+import com.schoolms.term.TermRepository;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/exams")
+@RequiredArgsConstructor
+public class ExamController {
+    private final ExamRepository examRepository;
+    private final SchoolClassRepository classRepository;
+    private final SubjectRepository subjectRepository;
+    private final TermRepository termRepository;
+    private final AcademicSessionRepository sessionRepository;
+
+    public record ExamRequest(@NotBlank String title, @NotNull Long classId, @NotNull Long subjectId, @NotNull Long termId,
+                              @NotNull Long sessionId, @NotNull LocalDate examDate, @NotNull Integer durationMinutes,
+                              @NotNull Double totalMarks, ExamStatus status) {}
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public ApiResponse<List<Exam>> list() { return ApiResponse.ok("Exams", examRepository.findAll()); }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public ApiResponse<Exam> create(@RequestBody ExamRequest request) {
+        Exam e = new Exam();
+        e.setTitle(request.title());
+        e.setSchoolClass(classRepository.findById(request.classId()).orElseThrow());
+        e.setSubject(subjectRepository.findById(request.subjectId()).orElseThrow());
+        e.setTerm(termRepository.findById(request.termId()).orElseThrow());
+        e.setAcademicSession(sessionRepository.findById(request.sessionId()).orElseThrow());
+        e.setExamDate(request.examDate()); e.setDurationMinutes(request.durationMinutes());
+        e.setTotalMarks(request.totalMarks()); e.setStatus(request.status() == null ? ExamStatus.DRAFT : request.status());
+        e.setExamCode("EXM-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        return ApiResponse.ok("Exam created", examRepository.save(e));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public ApiResponse<Exam> update(@PathVariable Long id, @RequestBody ExamRequest request) {
+        Exam e = examRepository.findById(id).orElseThrow();
+        e.setTitle(request.title()); e.setExamDate(request.examDate()); e.setDurationMinutes(request.durationMinutes());
+        e.setTotalMarks(request.totalMarks()); e.setStatus(request.status());
+        return ApiResponse.ok("Exam updated", examRepository.save(e));
+    }
+}
