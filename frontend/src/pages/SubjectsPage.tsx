@@ -4,7 +4,7 @@ import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
 import { FormModal } from '../components/FormModal';
 import { useAuth } from '../hooks/useAuth';
-import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
+import { apiErrorMessage, unwrapItem, unwrapList } from '../utils/apiHelpers';
 
 interface Subject { id: number; code: string; name: string; assignedTeacher?: { id: number; firstName?: string; lastName?: string; staffCode?: string } }
 interface Teacher { id: number; firstName: string; lastName: string; staffCode: string; }
@@ -15,6 +15,7 @@ export function SubjectsPage() {
   const [rows, setRows] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teachersLoading, setTeachersLoading] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [open, setOpen] = useState(false);
@@ -22,23 +23,12 @@ export function SubjectsPage() {
   const [name, setName] = useState('');
   const [teacherId, setTeacherId] = useState('');
 
-  const load = useCallback(async () => {
+  const loadSubjects = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const subjectsResponse = await api.get('/api/subjects');
       setRows(unwrapList<Subject>(subjectsResponse.data));
-
-      if (!canCreate) {
-        setTeachers([]);
-        setTeacherId('');
-        return;
-      }
-
-      const teachersResponse = await api.get('/api/teachers');
-      const teacherRows = unwrapList<Teacher>(teachersResponse.data);
-      setTeachers(teacherRows);
-      if (!teacherId && teacherRows[0]) setTeacherId(String(teacherRows[0].id));
     } catch (err) {
       const message = apiErrorMessage(err, 'Failed to load subjects.');
       if (message.toLowerCase().includes('403')) {
@@ -49,9 +39,29 @@ export function SubjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [canCreate, teacherId]);
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  const loadTeachers = useCallback(async () => {
+    if (!canCreate || teachers.length > 0 || teachersLoading) return;
+    setTeachersLoading(true);
+    try {
+      const teachersResponse = await api.get('/api/teachers');
+      const teacherRows = unwrapList<Teacher>(teachersResponse.data);
+      setTeachers(teacherRows);
+      if (!teacherId && teacherRows[0]) setTeacherId(String(teacherRows[0].id));
+    } catch {
+      setTeachers([]);
+      setTeacherId('');
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, [canCreate, teacherId, teachers.length, teachersLoading]);
+
+  useEffect(() => { void loadSubjects(); }, [loadSubjects]);
+
+  useEffect(() => {
+    if (open) void loadTeachers();
+  }, [open, loadTeachers]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -60,12 +70,16 @@ export function SubjectsPage() {
       return;
     }
     try {
-      await api.post('/api/subjects', { code: code.trim().toUpperCase(), name: name.trim(), teacherId: teacherId ? Number(teacherId) : null });
+      const createResponse = await api.post('/api/subjects', { code: code.trim().toUpperCase(), name: name.trim() });
+      const createdSubject = unwrapItem<Subject>(createResponse.data);
+      if (createdSubject?.id && teacherId) {
+        await api.put(`/api/subjects/${createdSubject.id}/assign-teacher`, { teacherId: Number(teacherId) });
+      }
       setFeedback('Subject created successfully.');
       setOpen(false);
       setCode('');
       setName('');
-      await load();
+      await loadSubjects();
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to create subject.'));
     }
@@ -76,7 +90,7 @@ export function SubjectsPage() {
       <PageHeader title="Subjects" subtitle="Manage subject catalog and teacher mapping." actionLabel="Add Subject" onAction={() => setOpen(true)} disabled={!canCreate} disabledReason="Only admins can create subjects." />
       {feedback ? <p className="success-text">{feedback}</p> : null}
       {loading ? <LoadingState title="Loading subjects..." /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {!loading && error ? <ErrorState message={error} onRetry={() => void loadSubjects()} /> : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title="No subjects found" message="Create subjects to prepare exam and marks workflows." /> : null}
       {!loading && !error && rows.length > 0 ? (
         <table className="table"><thead><tr><th>Code</th><th>Name</th><th>Assigned Teacher</th></tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.assignedTeacher ? `${item.assignedTeacher.firstName ?? ''} ${item.assignedTeacher.lastName ?? ''}`.trim() || item.assignedTeacher.staffCode : '-'}</td></tr>)}</tbody></table>
