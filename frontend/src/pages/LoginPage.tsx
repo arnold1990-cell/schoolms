@@ -15,16 +15,23 @@ export function LoginPage() {
     try { await login(email, password); nav('/dashboard'); }
     catch (err) {
       const apiError = err as { response?: { status?: number; data?: { message?: string } } };
-      const status = apiError.response?.status;
-      if (status === 401 || status === 403) {
-        setError('Invalid credentials');
-        return;
-      }
       const apiMessage = apiError.response?.data?.message;
       if (typeof apiMessage === 'string' && apiMessage.length > 0) {
         setError(apiMessage);
         return;
       }
+
+      const status = apiError.response?.status;
+      if (status === 401) {
+        setError('Invalid credentials');
+        return;
+      }
+
+      if (status === 403) {
+        setError('You do not have permission to access this application.');
+        return;
+      }
+
       setError('Unable to sign in right now. Please try again.');
     }
   };
