@@ -18,16 +18,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) return setLoading(false);
-    authService.me().then(setUser).finally(() => setLoading(false));
+    authService.me()
+      .then(setUser)
+      .catch(() => {
+        localStorage.removeItem('accessToken');
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const value = useMemo(() => ({
     user,
     loading,
     login: async (email: string, password: string) => {
+      localStorage.removeItem('accessToken');
       const result = await authService.login(email, password);
       localStorage.setItem('accessToken', result.accessToken);
-      setUser(await authService.me());
+      setUser(result.user);
     },
     logout: () => {
       localStorage.removeItem('accessToken');
