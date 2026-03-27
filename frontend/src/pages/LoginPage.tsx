@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { useAuth } from '../hooks/useAuth';
 
 export function LoginPage() {
@@ -14,14 +15,12 @@ export function LoginPage() {
     setError('');
     try { await login(email, password); nav('/dashboard'); }
     catch (err) {
-      const apiError = err as { response?: { status?: number; data?: { message?: string } } };
-      const apiMessage = apiError.response?.data?.message;
-      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
-        setError(apiMessage);
+      if (!isAxiosError(err)) {
+        setError('Unable to sign in right now. Please try again.');
         return;
       }
 
-      const status = apiError.response?.status;
+      const status = err.response?.status;
       if (status === 401) {
         setError('Invalid credentials');
         return;
@@ -29,6 +28,17 @@ export function LoginPage() {
 
       if (status === 403) {
         setError('You do not have permission to access this application.');
+        return;
+      }
+
+      if (!status || status >= 500) {
+        setError('Unable to sign in right now. Please try again.');
+        return;
+      }
+
+      const apiMessage = err.response?.data?.message;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        setError(apiMessage);
         return;
       }
 
