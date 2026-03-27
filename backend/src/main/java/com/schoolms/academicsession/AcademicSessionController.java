@@ -26,4 +26,14 @@ public class AcademicSessionController {
         AcademicSession session = new AcademicSession(); session.setName(request.name()); session.setActive(request.active());
         return ApiResponse.ok("Session created", repository.save(session));
     }
+
+    @PutMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<AcademicSession> activate(@PathVariable Long id) {
+        repository.findByActiveTrue().ifPresent(s -> { s.setActive(false); repository.save(s); });
+        AcademicSession session = repository.findById(id).orElseThrow();
+        session.setActive(true);
+        return ApiResponse.ok("Session activated", repository.save(session));
+    }
+
 }

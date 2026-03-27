@@ -30,7 +30,16 @@ public class ExamController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public ApiResponse<List<Exam>> list() { return ApiResponse.ok("Exams", examRepository.findAll()); }
+    public ApiResponse<List<Exam>> list(@RequestParam(required = false) Long classId,
+                                       @RequestParam(required = false) Long subjectId,
+                                       @RequestParam(required = false) ExamStatus status) {
+        List<Exam> exams = examRepository.findAll().stream()
+                .filter(exam -> classId == null || (exam.getSchoolClass() != null && classId.equals(exam.getSchoolClass().getId())))
+                .filter(exam -> subjectId == null || (exam.getSubject() != null && subjectId.equals(exam.getSubject().getId())))
+                .filter(exam -> status == null || status == exam.getStatus())
+                .toList();
+        return ApiResponse.ok("Exams", exams);
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")

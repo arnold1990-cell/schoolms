@@ -18,3 +18,16 @@ button:disabled { background:#94a3b8; cursor:not-allowed; }
 .table { width:100%; border-collapse:collapse; background:white; }
 .table th, .table td { border-bottom:1px solid #e5e7eb; padding:8px; text-align:left; vertical-align:top; }
 .login { max-width:380px; margin:60px auto; background:white; padding:24px; border-radius:12px; }
+
+.hint-text { font-size: 12px; color: #6b7280; margin-top: 4px; }
+.success-text { background: #ecfdf3; color: #166534; border: 1px solid #86efac; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+.badge { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #e5e7eb; color: #374151; font-size: 12px; }
+.badge.active { background: #dcfce7; color: #166534; }
+.form-grid { display: grid; gap: 10px; }
+.form-grid label { display: grid; gap: 4px; font-size: 14px; }
+.check-row { display: flex !important; align-items: center; gap: 8px; }
+.toolbar-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(17,24,39,.35); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 40; }
+.modal-card { width: min(560px, 100%); background: white; border-radius: 12px; padding: 16px; box-shadow: 0 15px 40px rgba(0,0,0,.2); max-height: calc(100vh - 32px); overflow: auto; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.text-button { background: transparent; border: 1px solid #d1d5db; color: #111827; }
