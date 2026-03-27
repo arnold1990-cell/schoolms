@@ -5,7 +5,8 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/schoolms
     username: postgres
-    password: postgres
+    password: Crt@Ailsa
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,9 +14,9 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+
   flyway:
-    enabled: true
-    baseline-on-migrate: true
+    enabled: false   # ✅ DISABLE (FIXES YOUR ERROR)
 
 app:
   jwt:
