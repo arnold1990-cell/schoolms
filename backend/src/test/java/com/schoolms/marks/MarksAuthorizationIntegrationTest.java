@@ -1,0 +1,81 @@
+package com.schoolms.marks;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.schoolms.user.Role;
+import com.schoolms.user.User;
+import com.schoolms.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class MarksAuthorizationIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        userRepository.deleteAll();
+        createUser("admin@schoolms.com", "Admin123!", Role.ADMIN);
+        createUser("teacher@schoolms.com", "Teacher123!", Role.TEACHER);
+    }
+
+    @Test
+    void teacherCanReadMarksEndpoint() throws Exception {
+        String teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
+
+        mockMvc.perform(get("/api/marks/exam/1")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void anonymousCannotReadMarksEndpoint() throws Exception {
+        mockMvc.perform(get("/api/marks/exam/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private void createUser(String email, String password, Role role) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setRole(role);
+        user.setEnabled(true);
+        userRepository.save(user);
+    }
+
+    private String loginAndGetToken(String email, String password) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"%s"}
+                                """.formatted(email, password)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
+        return payload.path("data").path("accessToken").asText();
+    }
+}

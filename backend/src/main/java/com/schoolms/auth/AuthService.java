@@ -2,6 +2,7 @@ package com.schoolms.auth;
 
 import com.schoolms.common.AppException;
 import com.schoolms.security.JwtService;
+import com.schoolms.user.Role;
 import com.schoolms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,9 +37,12 @@ public class AuthService {
 
         var user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new AppException("User not found", HttpStatus.NOT_FOUND));
+        if (user.getRole() != Role.ADMIN && user.getRole() != Role.TEACHER) {
+            throw new AppException("Role is not allowed to access this application", HttpStatus.FORBIDDEN);
+        }
         String token = jwtService.generateToken(user.getEmail(), java.util.Map.of("role", user.getRole().name(), "uid", user.getId()));
         log.info("Login successful for email='{}', role={}", user.getEmail(), user.getRole());
-        return new AuthDtos.LoginResponse(token, "Bearer", new AuthDtos.AuthUser(user.getId(), user.getEmail(), user.getRole()));
+        return new AuthDtos.LoginResponse(token, user.getEmail(), user.getRole());
     }
 
     public AuthDtos.MeResponse me(String email) {

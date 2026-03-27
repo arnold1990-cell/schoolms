@@ -41,6 +41,7 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedAdmin();
+        seedTeacherAccount();
         if (seedDemoData) {
             seedDemoRecords();
         }
@@ -113,6 +114,30 @@ public class DataSeeder implements CommandLineRunner {
         termRepository.save(term);
 
         log.info("Demo data seeded successfully (teachers, students, classes, subjects, session, term).");
+    }
+
+    private void seedTeacherAccount() {
+        userRepository.findByEmail("teacher@schoolms.com").ifPresentOrElse(teacher -> {
+            boolean passwordMatches = passwordEncoder.matches("Teacher123!", teacher.getPassword());
+            boolean roleMismatch = teacher.getRole() != Role.TEACHER;
+            boolean disabled = !teacher.isEnabled();
+
+            if (!passwordMatches || roleMismatch || disabled) {
+                teacher.setPassword(passwordEncoder.encode("Teacher123!"));
+                teacher.setRole(Role.TEACHER);
+                teacher.setEnabled(true);
+                userRepository.save(teacher);
+                log.warn("Teacher account data mismatch detected. Password/role/enabled values were reset to defaults.");
+            }
+        }, () -> {
+            User teacher = new User();
+            teacher.setEmail("teacher@schoolms.com");
+            teacher.setPassword(passwordEncoder.encode("Teacher123!"));
+            teacher.setRole(Role.TEACHER);
+            teacher.setEnabled(true);
+            userRepository.save(teacher);
+            log.info("Teacher account created with default credentials.");
+        });
     }
 
     private Teacher createTeacher(String firstName, String lastName, String staffCode, String email, String phone) {

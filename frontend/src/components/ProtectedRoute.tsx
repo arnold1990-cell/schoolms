@@ -1,9 +1,17 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-export function ProtectedRoute({ children }: { children: JSX.Element }) {
+interface ProtectedRouteProps {
+  children: JSX.Element;
+  allowedRoles?: Array<'ADMIN' | 'TEACHER'>;
+}
+
+export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   if (loading) return <div className="page">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/access-denied" replace />;
+  }
   return children;
 }

@@ -5,7 +5,7 @@ import { authService } from '../services/authService';
 interface AuthContextType {
   user: MeResponse | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<MeResponse>;
   logout: () => void;
 }
 
@@ -34,7 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('accessToken');
       const result = await authService.login(email, password);
       localStorage.setItem('accessToken', result.accessToken);
-      setUser(result.user);
+      setUser({ id: 0, email: result.email, role: result.role });
+      const me = await authService.me();
+      setUser(me);
+      return me;
     },
     logout: () => {
       localStorage.removeItem('accessToken');
