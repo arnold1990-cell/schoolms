@@ -1,10 +1,23 @@
 package com.schoolms.config;
 
+import com.schoolms.academicsession.AcademicSession;
+import com.schoolms.academicsession.AcademicSessionRepository;
+import com.schoolms.classmanagement.SchoolClass;
+import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.student.Student;
+import com.schoolms.student.StudentRepository;
+import com.schoolms.subject.Subject;
+import com.schoolms.subject.SubjectRepository;
+import com.schoolms.teacher.Teacher;
+import com.schoolms.teacher.TeacherRepository;
+import com.schoolms.term.Term;
+import com.schoolms.term.TermRepository;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -15,9 +28,25 @@ import org.springframework.stereotype.Component;
 public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TeacherRepository teacherRepository;
+    private final SchoolClassRepository classRepository;
+    private final StudentRepository studentRepository;
+    private final SubjectRepository subjectRepository;
+    private final AcademicSessionRepository sessionRepository;
+    private final TermRepository termRepository;
+
+    @Value("${app.seed-demo-data:false}")
+    private boolean seedDemoData;
 
     @Override
     public void run(String... args) {
+        seedAdmin();
+        if (seedDemoData) {
+            seedDemoRecords();
+        }
+    }
+
+    private void seedAdmin() {
         userRepository.findByEmail("admin@schoolms.com").ifPresentOrElse(admin -> {
             boolean passwordMatches = passwordEncoder.matches("Admin123!", admin.getPassword());
             boolean passwordMismatch = !passwordMatches;
@@ -43,5 +72,82 @@ public class DataSeeder implements CommandLineRunner {
             userRepository.save(admin);
             log.info("Admin account created with default credentials.");
         });
+    }
+
+    private void seedDemoRecords() {
+        if (teacherRepository.count() > 0 || studentRepository.count() > 0 || classRepository.count() > 0 || subjectRepository.count() > 0) {
+            log.info("Demo data seeding skipped because records already exist.");
+            return;
+        }
+
+        SchoolClass classOne = new SchoolClass();
+        classOne.setName("Grade 7");
+        classOne.setStream("A");
+        classOne = classRepository.save(classOne);
+
+        SchoolClass classTwo = new SchoolClass();
+        classTwo.setName("Grade 8");
+        classTwo.setStream("B");
+        classTwo = classRepository.save(classTwo);
+
+        Teacher t1 = createTeacher("Alice", "Johnson", "TCH-1001", "alice.johnson@schoolms.com", "555-0101");
+        Teacher t2 = createTeacher("Brian", "Kim", "TCH-1002", "brian.kim@schoolms.com", "555-0102");
+
+        createSubject("MATH101", "Mathematics", t1);
+        createSubject("ENG101", "English Language", t2);
+        createSubject("SCI101", "Integrated Science", t1);
+
+        createStudent("Liam", "Walker", "ADM-001", classOne, "ACTIVE", "555-0201");
+        createStudent("Emma", "Davis", "ADM-002", classOne, "ACTIVE", "555-0202");
+        createStudent("Noah", "Brown", "ADM-003", classTwo, "ACTIVE", "555-0203");
+
+        AcademicSession session = new AcademicSession();
+        session.setName("2026/2027");
+        session.setActive(true);
+        session = sessionRepository.save(session);
+
+        Term term = new Term();
+        term.setName("Term 1");
+        term.setActive(true);
+        term.setAcademicSession(session);
+        termRepository.save(term);
+
+        log.info("Demo data seeded successfully (teachers, students, classes, subjects, session, term).");
+    }
+
+    private Teacher createTeacher(String firstName, String lastName, String staffCode, String email, String phone) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Teacher123!"));
+        user.setRole(Role.TEACHER);
+        user.setEnabled(true);
+        user = userRepository.save(user);
+
+        Teacher teacher = new Teacher();
+        teacher.setFirstName(firstName);
+        teacher.setLastName(lastName);
+        teacher.setStaffCode(staffCode);
+        teacher.setPhone(phone);
+        teacher.setUser(user);
+        return teacherRepository.save(teacher);
+    }
+
+    private void createSubject(String code, String name, Teacher teacher) {
+        Subject subject = new Subject();
+        subject.setCode(code);
+        subject.setName(name);
+        subject.setAssignedTeacher(teacher);
+        subjectRepository.save(subject);
+    }
+
+    private void createStudent(String firstName, String lastName, String admissionNumber, SchoolClass schoolClass, String status, String guardianContact) {
+        Student student = new Student();
+        student.setFirstName(firstName);
+        student.setLastName(lastName);
+        student.setAdmissionNumber(admissionNumber);
+        student.setStatus(status);
+        student.setGuardianContact(guardianContact);
+        student.setSchoolClass(schoolClass);
+        studentRepository.save(student);
     }
 }
