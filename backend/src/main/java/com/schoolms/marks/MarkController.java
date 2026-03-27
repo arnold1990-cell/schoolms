@@ -7,6 +7,7 @@ import com.schoolms.grading.GradingService;
 import com.schoolms.student.StudentRepository;
 import com.schoolms.teacher.TeacherRepository;
 import com.schoolms.user.UserRepository;
+import com.schoolms.user.Role;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,8 +44,16 @@ public class MarkController {
         var exam = examRepository.findById(request.examId()).orElseThrow();
         if (request.score() < 0 || request.score() > exam.getTotalMarks()) throw new AppException("Score out of range", HttpStatus.BAD_REQUEST);
         var user = userRepository.findByEmail(authentication.getName()).orElseThrow(() -> new AppException("User not found", HttpStatus.NOT_FOUND));
-        var teacher = teacherRepository.findByUserId(user.getId())
-                .orElseGet(() -> teacherRepository.findAll().stream().findFirst().orElseThrow(() -> new AppException("No teacher available", HttpStatus.BAD_REQUEST)));
+        var teacher = teacherRepository.findByUserId(user.getId()).orElse(null);
+        if (user.getRole() == Role.TEACHER && teacher == null) {
+            throw new AppException("Teacher profile is not linked to this account", HttpStatus.FORBIDDEN);
+        }
+        if (teacher == null) {
+            teacher = exam.getSubject() != null ? exam.getSubject().getAssignedTeacher() : null;
+        }
+        if (teacher == null) {
+            throw new AppException("No teacher is assigned for this mark entry", HttpStatus.BAD_REQUEST);
+        }
         mark.setTeacher(teacher);
         mark.setExam(exam);
         mark.setStudent(studentRepository.findById(request.studentId()).orElseThrow());

@@ -13,7 +13,14 @@ export function LoginPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    try { await login(email, password); nav('/dashboard'); }
+    try {
+      const me = await login(email, password);
+      if (me.role === 'ADMIN') {
+        nav('/teachers');
+        return;
+      }
+      nav('/dashboard');
+    }
     catch (err) {
       if (!isAxiosError(err)) {
         setError('Unable to sign in right now. Please try again.');

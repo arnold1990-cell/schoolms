@@ -13,11 +13,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error?.response?.status;
+    if (status === 401) {
+      localStorage.removeItem('accessToken');
+    }
+    if (status === 403 && import.meta.env.DEV) {
+      console.warn('[API] Access denied for request', error?.config?.url);
+    }
     if (import.meta.env.DEV) {
       console.error('[API] Request failed', {
         url: error?.config?.url,
         method: error?.config?.method,
-        status: error?.response?.status,
+        status,
         data: error?.response?.data,
       });
     }

@@ -14,11 +14,13 @@ import { SubjectsPage } from '../pages/SubjectsPage';
 import { SessionsPage } from '../pages/SessionsPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { NotificationsPage } from '../pages/NotificationsPage';
+import { AccessDeniedPage } from '../pages/AccessDeniedPage';
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/access-denied" element={<AccessDeniedPage />} />
       <Route
         path="/"
         element={(
@@ -29,17 +31,17 @@ export function AppRoutes() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="teachers" element={<TeachersPage />} />
-        <Route path="students" element={<StudentsPage />} />
-        <Route path="classes" element={<ClassesPage />} />
+        <Route path="teachers" element={<ProtectedRoute allowedRoles={['ADMIN']}><TeachersPage /></ProtectedRoute>} />
+        <Route path="students" element={<ProtectedRoute allowedRoles={['ADMIN']}><StudentsPage /></ProtectedRoute>} />
+        <Route path="classes" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClassesPage /></ProtectedRoute>} />
         <Route path="subjects" element={<SubjectsPage />} />
-        <Route path="sessions" element={<SessionsPage />} />
+        <Route path="sessions" element={<ProtectedRoute allowedRoles={['ADMIN']}><SessionsPage /></ProtectedRoute>} />
         <Route path="exams" element={<ExamsPage />} />
         <Route path="marks" element={<MarksPage />} />
         <Route path="results" element={<ResultsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports" element={<ProtectedRoute allowedRoles={['ADMIN']}><ReportsPage /></ProtectedRoute>} />
       </Route>
     </Routes>
   );
