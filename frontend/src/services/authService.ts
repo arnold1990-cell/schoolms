@@ -8,9 +8,7 @@ function asNonEmptyString(value: unknown): string | null {
 
 function normalizeLoginPayload(payload: unknown): LoginResponse {
   const candidate = unwrapItem<Partial<LoginResponse>>(payload);
-  const accessToken = asNonEmptyString(
-    candidate?.accessToken ?? (candidate as { token?: unknown } | null)?.token
-  );
+  const accessToken = asNonEmptyString(candidate?.accessToken);
   const id = typeof candidate?.id === 'number' ? candidate.id : null;
   const email = asNonEmptyString(candidate?.email);
   const role = candidate?.role;
