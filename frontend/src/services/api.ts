@@ -11,21 +11,13 @@ function shouldResetSessionOnUnauthorized(error: unknown): boolean {
   if (status !== 401) return false;
 
   const configUrl = ((error as { config?: { url?: string } })?.config?.url ?? '').toLowerCase();
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    return true;
+  // Invalid credentials on the login endpoint should not force a global session reset flow.
+  if (configUrl.includes('/api/auth/login')) {
+    return false;
   }
 
-  // Auto-reset only when our identity probe fails, or when JWT parsing explicitly failed.
-  if (configUrl.includes('/api/auth/me')) {
-    return true;
-  }
-
-  const responseData = (error as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
-  const authMessage = `${responseData?.message ?? ''} ${responseData?.error ?? ''}`.toLowerCase();
-  return authMessage.includes('invalid token')
-    || authMessage.includes('expired')
-    || authMessage.includes('jwt');
+  // Any other 401 means the current session can no longer be used (expired, invalid, revoked, or missing).
+  return true;
 }
 
 api.interceptors.request.use((config) => {
