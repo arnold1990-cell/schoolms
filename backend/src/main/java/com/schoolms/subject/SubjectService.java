@@ -15,51 +15,60 @@ public class SubjectService {
     private final SubjectRepository subjectRepository;
     private final TeacherRepository teacherRepository;
 
-    public List<Subject> list() {
-        return subjectRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<SubjectResponse> list() {
+        return subjectRepository.findAll().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public Subject create(String code, String name) {
+    public SubjectResponse create(SubjectRequest request) {
+        String normalizedCode = normalizeCode(request.code());
+        ensureCodeUniqueForCreate(normalizedCode);
+
         Subject subject = new Subject();
-        applyUpsert(subject, code, name);
-        return subjectRepository.save(subject);
+        apply(subject, request, normalizedCode);
+        return toResponse(subjectRepository.save(subject));
     }
 
     @Transactional
-    public Subject update(Long id, String code, String name) {
+    public SubjectResponse update(Long id, SubjectRequest request) {
         Subject subject = getSubject(id);
-        applyUpsert(subject, code, name);
-        return subjectRepository.save(subject);
+        String normalizedCode = normalizeCode(request.code());
+        ensureCodeUniqueForUpdate(normalizedCode, id);
+
+        apply(subject, request, normalizedCode);
+        return toResponse(subjectRepository.save(subject));
     }
 
     @Transactional
     public void delete(Long id) {
-        subjectRepository.delete(getSubject(id));
+        Subject subject = getSubject(id);
+        subjectRepository.delete(subject);
     }
 
     @Transactional
-    public Subject assignTeacher(Long subjectId, Long teacherId) {
+    public SubjectResponse assignTeacher(Long subjectId, Long teacherId) {
         Subject subject = getSubject(subjectId);
-        if (teacherId == null) {
-            subject.setAssignedTeacher(null);
-        } else {
-            subject.setAssignedTeacher(getTeacher(teacherId));
+        subject.setAssignedTeacher(teacherId == null ? null : getTeacher(teacherId));
+        return toResponse(subjectRepository.save(subject));
+    }
+
+    private void apply(Subject subject, SubjectRequest request, String normalizedCode) {
+        subject.setCode(normalizedCode);
+        subject.setName(normalizeName(request.name()));
+        subject.setAssignedTeacher(request.assignedTeacherId() == null ? null : getTeacher(request.assignedTeacherId()));
+    }
+
+    private void ensureCodeUniqueForCreate(String normalizedCode) {
+        if (subjectRepository.existsByCodeIgnoreCase(normalizedCode)) {
+            throw new AppException("Subject code already exists", HttpStatus.CONFLICT);
         }
-        return subjectRepository.save(subject);
     }
 
-    private void applyUpsert(Subject subject, String code, String name) {
-        subject.setCode(normalizeCode(code));
-        subject.setName(normalize(name));
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim();
-    }
-
-    private String normalizeCode(String value) {
-        return normalize(value).toUpperCase();
+    private void ensureCodeUniqueForUpdate(String normalizedCode, Long id) {
+        if (subjectRepository.existsByCodeIgnoreCaseAndIdNot(normalizedCode, id)) {
+            throw new AppException("Subject code already exists", HttpStatus.CONFLICT);
+        }
     }
 
     private Subject getSubject(Long id) {
@@ -70,5 +79,26 @@ public class SubjectService {
     private Teacher getTeacher(Long id) {
         return teacherRepository.findById(id)
                 .orElseThrow(() -> new AppException("Teacher not found", HttpStatus.NOT_FOUND));
+    }
+
+    private SubjectResponse toResponse(Subject subject) {
+        Long assignedTeacherId = subject.getAssignedTeacher() == null ? null : subject.getAssignedTeacher().getId();
+        return new SubjectResponse(subject.getId(), subject.getCode(), subject.getName(), assignedTeacherId);
+    }
+
+    private String normalizeCode(String code) {
+        String normalized = code == null ? "" : code.trim().toUpperCase();
+        if (normalized.isBlank()) {
+            throw new AppException("Code is required", HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
+    }
+
+    private String normalizeName(String name) {
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.isBlank()) {
+            throw new AppException("Name is required", HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
     }
 }

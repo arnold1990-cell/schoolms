@@ -2,6 +2,7 @@ package com.schoolms.common;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -26,5 +27,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthentication(AuthenticationException ex) {
         return ResponseEntity.status(401).body(new ApiResponse<>(false, "Invalid credentials", null));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(409).body(new ApiResponse<>(false, "Duplicate or invalid data", null));
     }
 }
