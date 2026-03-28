@@ -1,18 +1,22 @@
 import axios from 'axios';
 
 const resolvedBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:8080';
+const ACCESS_TOKEN_KEY = 'accessToken';
 
 export const UNAUTHORIZED_EVENT = 'schoolms:unauthorized';
 
 const api = axios.create({ baseURL: resolvedBaseUrl });
 
 function forceLogoutAfterInvalidSession() {
-  localStorage.removeItem('accessToken');
+  if (import.meta.env.DEV) {
+    console.debug('[API] unauthorized event fired; removing accessToken and notifying auth context');
+  }
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -27,14 +31,19 @@ api.interceptors.response.use(
     const requestUrl = String(error?.config?.url ?? '').toLowerCase();
     const isAuthMeRequest = requestUrl.includes('/api/auth/me');
     const isAuthLoginRequest = requestUrl.includes('/api/auth/login');
-    const hasToken = Boolean(localStorage.getItem('accessToken'));
+    const isAuthRequest = isAuthMeRequest || isAuthLoginRequest;
+    const hasToken = Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
 
-    if (status === 401 && hasToken && isAuthMeRequest) {
+    if (status === 401 && hasToken && !isAuthRequest) {
       forceLogoutAfterInvalidSession();
     }
 
-    if (status === 401 && !hasToken && !isAuthLoginRequest && import.meta.env.DEV) {
-      console.warn('[API] Received 401 without an accessToken. Keeping auth state untouched for this request.', error?.config?.url);
+    if (status === 401 && import.meta.env.DEV) {
+      console.warn('[API] 401 response received', {
+        url: error?.config?.url,
+        hasToken,
+        isAuthRequest,
+      });
     }
 
     if (status === 403 && import.meta.env.DEV) {

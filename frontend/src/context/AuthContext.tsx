@@ -4,6 +4,24 @@ import { UNAUTHORIZED_EVENT } from '../services/api';
 import { MeResponse } from '../types';
 
 const ACCESS_TOKEN_KEY = 'accessToken';
+const AUTH_USER_KEY = 'authUser';
+
+function parseStoredAuthUser(rawValue: string | null): MeResponse | null {
+  if (!rawValue) return null;
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<MeResponse>;
+    if (
+      typeof parsed?.id === 'number'
+      && typeof parsed?.email === 'string'
+      && (parsed.role === 'ADMIN' || parsed.role === 'TEACHER')
+    ) {
+      return { id: parsed.id, email: parsed.email, role: parsed.role };
+    }
+  } catch {
+    // ignore invalid cached auth user
+  }
+  return null;
+}
 
 export interface AuthContextValue {
   user: MeResponse | null;
@@ -24,7 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
 
   const clearSession = useCallback(() => {
+    if (import.meta.env.DEV) {
+      console.debug('[Auth] logout triggered; clearing auth session');
+    }
     localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
     setUser(null);
     setToken(null);
   }, []);
@@ -34,26 +56,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const bootstrap = async () => {
       setLoading(true);
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] bootstrap started');
+      }
 
       const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+      const storedUser = parseStoredAuthUser(localStorage.getItem(AUTH_USER_KEY));
       if (!active) {
         return;
       }
 
       setToken(storedToken);
+      if (storedToken && storedUser) {
+        setUser(storedUser);
+      } else if (!storedToken && storedUser) {
+        localStorage.removeItem(AUTH_USER_KEY);
+      }
 
       if (!storedToken) {
         setLoading(false);
         setAuthReady(true);
+        if (import.meta.env.DEV) {
+          console.debug('[Auth] bootstrap completed (no stored token)');
+        }
         return;
       }
 
       try {
+        if (import.meta.env.DEV) {
+          console.debug('[Auth] /api/auth/me request start (bootstrap)');
+        }
         const me = await authService.me();
         if (!active) {
           return;
         }
+        if (import.meta.env.DEV) {
+          console.debug('[Auth] /api/auth/me request success (bootstrap)');
+        }
         setUser(me);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
       } catch (error: unknown) {
         const status = (error as { response?: { status?: number } })?.response?.status;
         if (!active) {
@@ -68,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) {
           setLoading(false);
           setAuthReady(true);
+          if (import.meta.env.DEV) {
+            console.debug('[Auth] bootstrap completed');
+          }
         }
       }
     };
@@ -81,6 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onUnauthorized = () => {
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] unauthorized event fired');
+      }
       clearSession();
       setLoading(false);
       setAuthReady(true);
@@ -97,11 +144,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await authService.login(email, password);
       const nextToken = result.accessToken;
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] login success; token extracted');
+      }
       localStorage.setItem(ACCESS_TOKEN_KEY, nextToken);
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] token stored under accessToken');
+      }
       setToken(nextToken);
 
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] /api/auth/me request start (login)');
+      }
       const me = await authService.me();
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] /api/auth/me request success (login)');
+      }
       setUser(me);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
       setAuthReady(true);
       return me;
     } finally {
