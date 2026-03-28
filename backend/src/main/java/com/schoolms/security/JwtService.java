@@ -52,7 +52,9 @@ public class JwtService {
 
     public boolean isValid(String token, String email) {
         Claims claims = parse(token);
-        return claims.getSubject().equals(email) && claims.getExpiration().after(new Date());
+        String subject = claims.getSubject() == null ? "" : claims.getSubject().trim().toLowerCase(java.util.Locale.ROOT);
+        String expectedEmail = email == null ? "" : email.trim().toLowerCase(java.util.Locale.ROOT);
+        return subject.equals(expectedEmail) && claims.getExpiration().after(new Date());
     }
 
 }

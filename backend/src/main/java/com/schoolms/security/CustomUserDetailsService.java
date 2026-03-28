@@ -1,6 +1,7 @@
 package com.schoolms.security;
 
 import com.schoolms.user.UserRepository;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
@@ -13,7 +14,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var user = userRepository.findByEmail(username)
+        String normalizedEmail = normalizeEmail(username);
+        var user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
@@ -21,5 +23,9 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.isEnabled(),
                 true, true, true,
                 java.util.List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }

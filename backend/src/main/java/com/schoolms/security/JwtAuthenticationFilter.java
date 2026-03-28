@@ -1,17 +1,18 @@
 package com.schoolms.security;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import io.jsonwebtoken.JwtException;
 import java.io.IOException;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -39,9 +40,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         log.debug("JWT filter token extraction succeeded for requestUri='{}'", requestUri);
         try {
-            String email = jwtService.parse(token).getSubject();
+            String email = normalizeEmail(jwtService.parse(token).getSubject());
             log.debug("JWT filter extracted subject='{}' for requestUri='{}'", email, requestUri);
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (!email.isBlank() && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
                 log.debug("JWT filter loaded authorities={} for subject='{}'", userDetails.getAuthorities(), email);
                 if (jwtService.isValid(token, userDetails.getUsername()) && userDetails.isEnabled()) {
@@ -70,5 +71,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         String token = header.substring(7).trim();
         return token.isEmpty() ? null : token;
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }
