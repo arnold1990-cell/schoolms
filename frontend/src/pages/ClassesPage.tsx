@@ -9,7 +9,7 @@ import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
 interface SchoolClass { id: number; name: string; stream?: string; }
 
 export function ClassesPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const canCreate = useMemo(() => user?.role === 'ADMIN', [user?.role]);
   const [rows, setRows] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,12 @@ export function ClassesPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
+    void load();
+  }, [authReady, load, user]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,6 +56,10 @@ export function ClassesPage() {
       setError(apiErrorMessage(err, 'Failed to create class.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

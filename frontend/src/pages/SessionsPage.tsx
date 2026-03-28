@@ -9,7 +9,7 @@ import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
 interface AcademicSession { id: number; name: string; active: boolean; }
 
 export function SessionsPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const canCreate = useMemo(() => user?.role === 'ADMIN', [user?.role]);
   const [rows, setRows] = useState<AcademicSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,12 @@ export function SessionsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
+    void load();
+  }, [authReady, load, user]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -61,6 +66,10 @@ export function SessionsPage() {
       setError(apiErrorMessage(err, 'Failed to activate session.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">
