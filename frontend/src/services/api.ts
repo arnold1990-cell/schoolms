@@ -8,7 +8,6 @@ const api = axios.create({ baseURL: resolvedBaseUrl });
 
 function forceLogoutAfterInvalidSession() {
   localStorage.removeItem('accessToken');
-  localStorage.removeItem('authUser');
   window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
 }
 
