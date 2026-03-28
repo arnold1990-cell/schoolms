@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
 
 const resolvedBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:8080';
 const ACCESS_TOKEN_KEY = 'accessToken';
@@ -8,6 +9,10 @@ export const UNAUTHORIZED_EVENT = 'schoolms:unauthorized';
 
 const api = axios.create({ baseURL: resolvedBaseUrl });
 let sessionValidationPromise: Promise<boolean> | null = null;
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retriedAfterSessionValidation?: boolean;
+}
 
 function forceLogoutAfterInvalidSession() {
   if (import.meta.env.DEV) {
@@ -54,7 +59,13 @@ api.interceptors.response.use(
       const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token) {
         const hasValidSession = await validateActiveSession(token);
-        if (!hasValidSession) {
+        if (hasValidSession) {
+          const requestConfig = error?.config as RetryableRequestConfig | undefined;
+          if (requestConfig && !requestConfig._retriedAfterSessionValidation) {
+            requestConfig._retriedAfterSessionValidation = true;
+            return api.request(requestConfig);
+          }
+        } else {
           forceLogoutAfterInvalidSession();
         }
       }
