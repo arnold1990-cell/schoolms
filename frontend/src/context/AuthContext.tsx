@@ -41,9 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
 
-  const clearSession = useCallback(() => {
+  const clearSession = useCallback((reason = 'manual') => {
     if (import.meta.env.DEV) {
-      console.debug('[Auth] logout triggered; clearing auth session');
+      console.debug('[Auth] logout triggered; clearing auth session', { reason });
     }
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+      const bootstrapToken = storedToken;
       const storedUser = parseStoredAuthUser(localStorage.getItem(AUTH_USER_KEY));
       if (!active) {
         return;
@@ -101,7 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (status === 401) {
-          clearSession();
+          const latestToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+          if (latestToken && latestToken !== bootstrapToken) {
+            if (import.meta.env.DEV) {
+              console.debug('[Auth] bootstrap received stale 401; ignoring because token changed');
+            }
+          } else {
+            clearSession('bootstrap me 401');
+          }
         } else if (import.meta.env.DEV) {
           console.warn('[Auth] Session bootstrap could not refresh /api/auth/me. Using cached user if present.', error);
         }
@@ -139,10 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
-    clearSession();
+    clearSession('new login attempt');
 
     try {
       const result = await authService.login(email, password);
+      if (import.meta.env.DEV) {
+        console.debug('[Auth] login response received', result);
+      }
       const nextToken = result.accessToken;
       if (import.meta.env.DEV) {
         console.debug('[Auth] login success; token extracted');
@@ -164,13 +175,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
       setAuthReady(true);
       return me;
+    } catch (error) {
+      clearSession('login flow failed');
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [clearSession]);
 
   const logout = useCallback(() => {
-    clearSession();
+    clearSession('user clicked logout');
     setLoading(false);
     setAuthReady(true);
   }, [clearSession]);
