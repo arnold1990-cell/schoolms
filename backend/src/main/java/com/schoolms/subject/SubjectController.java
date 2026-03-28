@@ -36,8 +36,8 @@ public class SubjectController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        subjectService.delete(id);
-        return ApiResponse.ok("Subject deleted", null);
+        subjectService.deleteSubject(id);
+        return ApiResponse.ok("Subject deleted successfully", null);
     }
 
     @PutMapping("/{id}/assign-teacher")
