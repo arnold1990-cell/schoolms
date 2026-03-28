@@ -50,9 +50,7 @@ api.interceptors.response.use(
     const isAuthLoginRequest = requestUrl.includes('/api/auth/login');
     const isAuthRequest = isAuthMeRequest || isAuthLoginRequest;
     const hasToken = Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
-    const hasEstablishedSession = Boolean(localStorage.getItem(AUTH_USER_KEY));
-
-    if (status === 401 && hasToken && hasEstablishedSession && !isAuthRequest) {
+    if (status === 401 && hasToken && !isAuthRequest) {
       const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token) {
         const hasValidSession = await validateActiveSession(token);
@@ -66,7 +64,6 @@ api.interceptors.response.use(
       console.warn('[API] 401 response received', {
         url: error?.config?.url,
         hasToken,
-        hasEstablishedSession,
         isAuthRequest,
       });
     }
