@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const resolvedBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:8080';
 const ACCESS_TOKEN_KEY = 'accessToken';
+const AUTH_USER_KEY = 'authUser';
 
 export const UNAUTHORIZED_EVENT = 'schoolms:unauthorized';
 
@@ -33,8 +34,9 @@ api.interceptors.response.use(
     const isAuthLoginRequest = requestUrl.includes('/api/auth/login');
     const isAuthRequest = isAuthMeRequest || isAuthLoginRequest;
     const hasToken = Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
+    const hasEstablishedSession = Boolean(localStorage.getItem(AUTH_USER_KEY));
 
-    if (status === 401 && hasToken && !isAuthRequest) {
+    if (status === 401 && hasToken && hasEstablishedSession && !isAuthRequest) {
       forceLogoutAfterInvalidSession();
     }
 
@@ -42,6 +44,7 @@ api.interceptors.response.use(
       console.warn('[API] 401 response received', {
         url: error?.config?.url,
         hasToken,
+        hasEstablishedSession,
         isAuthRequest,
       });
     }
