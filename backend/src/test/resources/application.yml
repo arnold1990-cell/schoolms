@@ -12,4 +12,7 @@ spring:
     enabled: false
 
 app:
+  jwt:
+    secret: U2Nob29sTVNhdXBlclNlY3JldEtleUZvckpXVE1VU1RCZUxvbmdFbm91Z2g=
+    expiration-ms: 86400000
   seed-demo-data: false
