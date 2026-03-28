@@ -4,7 +4,6 @@ import { UNAUTHORIZED_EVENT } from '../services/api';
 import { MeResponse } from '../types';
 
 const ACCESS_TOKEN_KEY = 'accessToken';
-const AUTH_USER_KEY = 'authUser';
 
 export interface AuthContextValue {
   user: MeResponse | null;
@@ -18,43 +17,6 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function readStoredUser(): MeResponse | null {
-  const serialized = localStorage.getItem(AUTH_USER_KEY);
-  if (!serialized) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(serialized) as Partial<MeResponse>;
-    if (typeof parsed?.id !== 'number') {
-      return null;
-    }
-    if (typeof parsed?.email !== 'string' || !parsed.email.trim()) {
-      return null;
-    }
-    if (parsed.role !== 'ADMIN' && parsed.role !== 'TEACHER') {
-      return null;
-    }
-
-    return {
-      id: parsed.id,
-      email: parsed.email,
-      role: parsed.role,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function persistUser(user: MeResponse | null): void {
-  if (!user) {
-    localStorage.removeItem(AUTH_USER_KEY);
-    return;
-  }
-
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -63,7 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearSession = useCallback(() => {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
     setUser(null);
     setToken(null);
   }, []);
@@ -75,16 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-      const storedUser = readStoredUser();
-
       if (!active) {
         return;
       }
 
       setToken(storedToken);
-      if (storedUser) {
-        setUser(storedUser);
-      }
 
       if (!storedToken) {
         setLoading(false);
@@ -98,7 +54,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         setUser(me);
-        persistUser(me);
       } catch (error: unknown) {
         const status = (error as { response?: { status?: number } })?.response?.status;
         if (!active) {
@@ -147,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const me = await authService.me();
       setUser(me);
-      persistUser(me);
       setAuthReady(true);
       return me;
     } finally {
