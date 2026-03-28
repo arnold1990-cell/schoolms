@@ -56,6 +56,16 @@ public class SubjectController {
     @PutMapping("/{id}/assign-teacher")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Subject> assignTeacher(@PathVariable Long id, @RequestBody AssignTeacherRequest request) {
+        return assignTeacherInternal(id, request);
+    }
+
+    @PostMapping("/{id}/assign-teacher")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Subject> assignTeacherPost(@PathVariable Long id, @RequestBody AssignTeacherRequest request) {
+        return assignTeacherInternal(id, request);
+    }
+
+    private ApiResponse<Subject> assignTeacherInternal(Long id, AssignTeacherRequest request) {
         Subject subject = getSubject(id);
         if (request.teacherId() == null) {
             subject.setAssignedTeacher(null);

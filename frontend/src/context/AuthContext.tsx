@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const onUnauthorized = () => {
+      localStorage.removeItem('accessToken');
       setUser(null);
       setLoading(false);
     };

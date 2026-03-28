@@ -11,7 +11,7 @@ interface Teacher { id: number; firstName: string; lastName: string; staffCode: 
 
 export function SubjectsPage() {
   const { user } = useAuth();
-  const canCreate = useMemo(() => user?.role === 'ADMIN', [user?.role]);
+  const isAdmin = useMemo(() => user?.role === 'ADMIN', [user?.role]);
   const [rows, setRows] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,8 @@ export function SubjectsPage() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [teacherId, setTeacherId] = useState('');
+  const [assignSubjectId, setAssignSubjectId] = useState<number | null>(null);
+  const [assignTeacherId, setAssignTeacherId] = useState('');
 
   const loadSubjects = useCallback(async () => {
     setLoading(true);
@@ -42,7 +44,7 @@ export function SubjectsPage() {
   }, []);
 
   const loadTeachers = useCallback(async () => {
-    if (!canCreate || teachers.length > 0 || teachersLoading) return;
+    if (!isAdmin || teachers.length > 0 || teachersLoading) return;
     setTeachersLoading(true);
     try {
       const teachersResponse = await api.get('/api/teachers');
@@ -54,7 +56,7 @@ export function SubjectsPage() {
     } finally {
       setTeachersLoading(false);
     }
-  }, [canCreate, teachers.length, teachersLoading]);
+  }, [isAdmin, teachers.length, teachersLoading]);
 
   useEffect(() => { void loadSubjects(); }, [loadSubjects]);
 
@@ -64,7 +66,7 @@ export function SubjectsPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canCreate) {
+    if (!isAdmin) {
       setError('Only admins can create subjects and assign teachers.');
       return;
     }
@@ -76,7 +78,7 @@ export function SubjectsPage() {
       const createResponse = await api.post('/api/subjects', { code: code.trim().toUpperCase(), name: name.trim() });
       const createdSubject = unwrapItem<Subject>(createResponse.data);
       if (createdSubject?.id && teacherId) {
-        await api.put(`/api/subjects/${createdSubject.id}/assign-teacher`, { teacherId: Number(teacherId) });
+        await api.post(`/api/subjects/${createdSubject.id}/assign-teacher`, { teacherId: Number(teacherId) });
       }
       setFeedback('Subject created successfully.');
       setOpen(false);
@@ -88,22 +90,52 @@ export function SubjectsPage() {
     }
   };
 
+  const assignTeacher = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!isAdmin || !assignSubjectId) {
+      setError('Only admins can assign teachers to subjects.');
+      return;
+    }
+    try {
+      await api.post(`/api/subjects/${assignSubjectId}/assign-teacher`, {
+        teacherId: assignTeacherId ? Number(assignTeacherId) : null,
+      });
+      setFeedback('Teacher assignment updated.');
+      setAssignSubjectId(null);
+      setAssignTeacherId('');
+      await loadSubjects();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to assign teacher.'));
+    }
+  };
+
   return (
     <div className="page">
-      <PageHeader title="Subjects" subtitle="Manage subject catalog and teacher mapping." actionLabel="Add Subject" onAction={() => setOpen(true)} disabled={!canCreate} disabledReason="Only admins can create subjects." />
+      <PageHeader
+        title="Subjects"
+        subtitle="Manage subject catalog and teacher mapping."
+        actionLabel={isAdmin ? 'Add Subject' : undefined}
+        onAction={() => setOpen(true)}
+      />
       {feedback ? <p className="success-text">{feedback}</p> : null}
       {loading ? <LoadingState title="Loading subjects..." /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={() => void loadSubjects()} /> : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title="No subjects found" message="Create subjects to prepare exam and marks workflows." /> : null}
       {!loading && !error && rows.length > 0 ? (
-        <table className="table"><thead><tr><th>Code</th><th>Name</th><th>Assigned Teacher</th></tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.assignedTeacher ? `${item.assignedTeacher.firstName ?? ''} ${item.assignedTeacher.lastName ?? ''}`.trim() || item.assignedTeacher.staffCode : '-'}</td></tr>)}</tbody></table>
+        <table className="table"><thead><tr><th>Code</th><th>Name</th><th>Assigned Teacher</th>{isAdmin ? <th>Actions</th> : null}</tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.assignedTeacher ? `${item.assignedTeacher.firstName ?? ''} ${item.assignedTeacher.lastName ?? ''}`.trim() || item.assignedTeacher.staffCode : '-'}</td>{isAdmin ? <td><button type="button" onClick={() => { setAssignSubjectId(item.id); setAssignTeacherId(item.assignedTeacher?.id ? String(item.assignedTeacher.id) : ''); void loadTeachers(); }}>Assign Teacher</button></td> : null}</tr>)}</tbody></table>
       ) : null}
-      <FormModal title="Add Subject" open={open} onClose={() => setOpen(false)}>
+      <FormModal title="Add Subject" open={open && isAdmin} onClose={() => setOpen(false)}>
         <form className="form-grid" onSubmit={submit}>
           <label>Code<input value={code} onChange={(e) => setCode(e.target.value)} /></label>
           <label>Name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label>Teacher<select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}><option value="">Unassigned</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName} ({t.staffCode})</option>)}</select></label>
           <button type="submit">Save Subject</button>
+        </form>
+      </FormModal>
+      <FormModal title="Assign Teacher" open={assignSubjectId !== null && isAdmin} onClose={() => setAssignSubjectId(null)}>
+        <form className="form-grid" onSubmit={assignTeacher}>
+          <label>Teacher<select value={assignTeacherId} onChange={(e) => setAssignTeacherId(e.target.value)}><option value="">Unassigned</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName} ({t.staffCode})</option>)}</select></label>
+          <button type="submit">Save Assignment</button>
         </form>
       </FormModal>
     </div>
