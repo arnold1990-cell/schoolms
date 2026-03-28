@@ -35,3 +35,7 @@ export async function assignSubjectTeacher(subjectId: number, teacherId: number 
   const response = await api.post(`/api/subjects/${subjectId}/assign-teacher`, { teacherId });
   return requireSubject(response.data);
 }
+
+export async function deleteSubject(subjectId: number): Promise<void> {
+  await api.delete(`/api/subjects/${subjectId}`);
+}

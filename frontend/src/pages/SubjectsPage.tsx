@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
 import { FormModal } from '../components/FormModal';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
-import { assignSubjectTeacher, createSubject, listSubjects, SubjectDto } from '../services/subjectService';
+import { assignSubjectTeacher, createSubject, deleteSubject, listSubjects, SubjectDto } from '../services/subjectService';
 
 type Subject = SubjectDto;
 interface Teacher { id: number; firstName: string; lastName: string; staffCode: string; }
@@ -25,6 +25,8 @@ export function SubjectsPage() {
   const [teacherId, setTeacherId] = useState('');
   const [assignSubjectId, setAssignSubjectId] = useState<number | null>(null);
   const [assignTeacherId, setAssignTeacherId] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadSubjects = useCallback(async () => {
     setLoading(true);
@@ -114,6 +116,37 @@ export function SubjectsPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!isAdmin || !deleteTarget) {
+      setError('Only admins can delete subjects.');
+      return;
+    }
+
+    setDeleting(true);
+    setError('');
+    setFeedback('');
+    try {
+      await deleteSubject(deleteTarget.id);
+      setRows((currentRows) => currentRows.filter((item) => item.id !== deleteTarget.id));
+      setFeedback(`Subject "${deleteTarget.code} - ${deleteTarget.name}" deleted successfully.`);
+      if (assignSubjectId === deleteTarget.id) {
+        setAssignSubjectId(null);
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        setError('Your session is not authorized to delete subjects. Please sign in again.');
+      } else if (status === 403) {
+        setError('You do not have permission to delete subjects.');
+      } else {
+        setError(apiErrorMessage(err, 'Failed to delete subject.'));
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!authReady) {
     return <div className="page"><LoadingState title="Restoring session..." /></div>;
   }
@@ -131,7 +164,7 @@ export function SubjectsPage() {
       {!loading && error ? <ErrorState message={error} onRetry={() => void loadSubjects()} /> : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title="No subjects found" message="Create subjects to prepare exam and marks workflows." /> : null}
       {!loading && !error && rows.length > 0 ? (
-        <table className="table"><thead><tr><th>Code</th><th>Name</th><th>Assigned Teacher</th>{isAdmin ? <th>Actions</th> : null}</tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.assignedTeacher ? `${item.assignedTeacher.firstName ?? ''} ${item.assignedTeacher.lastName ?? ''}`.trim() || item.assignedTeacher.staffCode : '-'}</td>{isAdmin ? <td><button type="button" onClick={() => { setAssignSubjectId(item.id); setAssignTeacherId(item.assignedTeacher?.id ? String(item.assignedTeacher.id) : ''); void loadTeachers(); }}>Assign Teacher</button></td> : null}</tr>)}</tbody></table>
+        <table className="table"><thead><tr><th>Code</th><th>Name</th><th>Assigned Teacher</th>{isAdmin ? <th>Actions</th> : null}</tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.assignedTeacher ? `${item.assignedTeacher.firstName ?? ''} ${item.assignedTeacher.lastName ?? ''}`.trim() || item.assignedTeacher.staffCode : '-'}</td>{isAdmin ? <td><div className="action-buttons"><button type="button" onClick={() => { setAssignSubjectId(item.id); setAssignTeacherId(item.assignedTeacher?.id ? String(item.assignedTeacher.id) : ''); void loadTeachers(); }}>Assign Teacher</button><button type="button" className="danger-button" onClick={() => setDeleteTarget(item)}>Delete</button></div></td> : null}</tr>)}</tbody></table>
       ) : null}
       <FormModal title="Add Subject" open={open && isAdmin} onClose={() => setOpen(false)}>
         <form className="form-grid" onSubmit={submit}>
@@ -146,6 +179,18 @@ export function SubjectsPage() {
           <label>Teacher<select value={assignTeacherId} onChange={(e) => setAssignTeacherId(e.target.value)}><option value="">Unassigned</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.firstName} {t.lastName} ({t.staffCode})</option>)}</select></label>
           <button type="submit">Save Assignment</button>
         </form>
+      </FormModal>
+      <FormModal title="Delete Subject" open={deleteTarget !== null && isAdmin} onClose={() => setDeleteTarget(null)}>
+        <div className="form-grid">
+          <p>
+            Are you sure you want to delete this subject?
+            {deleteTarget ? ` (${deleteTarget.code} - ${deleteTarget.name})` : ''}
+          </p>
+          <div className="action-buttons">
+            <button type="button" className="text-button" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</button>
+            <button type="button" className="danger-button" onClick={() => void confirmDelete()} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete Subject'}</button>
+          </div>
+        </div>
       </FormModal>
     </div>
   );
