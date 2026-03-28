@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
+import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
 
 interface NotificationItem {
@@ -13,6 +14,7 @@ interface NotificationItem {
 }
 
 export function NotificationsPage() {
+  const { user, authReady } = useAuth();
   const [rows, setRows] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +32,12 @@ export function NotificationsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
+    void load();
+  }, [authReady, load, user]);
 
   const markAsRead = async (id: number) => {
     try {
@@ -40,6 +47,10 @@ export function NotificationsPage() {
       setError(apiErrorMessage(err, 'Failed to update notification.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

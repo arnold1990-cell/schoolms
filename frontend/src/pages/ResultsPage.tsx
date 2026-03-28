@@ -4,6 +4,7 @@ import api from '../services/api';
 import { DataTable } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
+import { useAuth } from '../hooks/useAuth';
 
 interface SchoolClass {
   id: number;
@@ -17,6 +18,7 @@ function message(error: unknown) {
 }
 
 export function ResultsPage() {
+  const { user, authReady } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -55,11 +57,14 @@ export function ResultsPage() {
   }, [loadClasses]);
 
   useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
     void bootstrap();
-  }, [bootstrap]);
+  }, [authReady, bootstrap, user]);
 
   useEffect(() => {
-    if (!selectedClassId) return;
+    if (!authReady || !user || !selectedClassId) return;
 
     setLoading(true);
     setError('');
@@ -71,7 +76,11 @@ export function ResultsPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [loadResults, selectedClassId]);
+  }, [authReady, loadResults, selectedClassId, user]);
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

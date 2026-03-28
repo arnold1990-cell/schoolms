@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import api from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
+import { useAuth } from '../hooks/useAuth';
 
 type AnalyticsData = Record<string, number | string>;
 
@@ -12,6 +13,7 @@ function messageFrom(error: unknown) {
 }
 
 export function AnalyticsPage() {
+  const { user, authReady } = useAuth();
   const [data, setData] = useState<AnalyticsData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,10 +36,17 @@ export function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
     void load();
-  }, [load]);
+  }, [authReady, load, user]);
 
   const entries = Object.entries(data);
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

@@ -34,7 +34,7 @@ const blankForm = {
 };
 
 export function StudentsPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const canManage = useMemo(() => user?.role === 'ADMIN', [user?.role]);
   const [rows, setRows] = useState<Student[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -69,8 +69,11 @@ export function StudentsPage() {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
     void Promise.all([loadStudents(''), loadClasses()]);
-  }, [loadClasses, loadStudents]);
+  }, [authReady, loadClasses, loadStudents, user]);
 
   const openCreate = () => {
     setEditing(null);
@@ -132,6 +135,10 @@ export function StudentsPage() {
     event.preventDefault();
     await loadStudents(query);
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

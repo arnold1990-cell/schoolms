@@ -28,7 +28,7 @@ const initialForm = {
 };
 
 export function TeachersPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const [rows, setRows] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,8 +53,11 @@ export function TeachersPage() {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
     void loadTeachers();
-  }, [loadTeachers]);
+  }, [authReady, loadTeachers, user]);
 
   const validate = () => {
     if (!form.firstName.trim() || !form.lastName.trim()) return 'First and last name are required.';
@@ -111,6 +114,10 @@ export function TeachersPage() {
       setError(apiErrorMessage(err, 'Failed to update teacher status.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

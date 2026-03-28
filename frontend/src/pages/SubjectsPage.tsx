@@ -11,7 +11,7 @@ type Subject = SubjectDto;
 interface Teacher { id: number; firstName: string; lastName: string; staffCode: string; }
 
 export function SubjectsPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const isAdmin = useMemo(() => user?.role === 'ADMIN', [user?.role]);
   const [rows, setRows] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -61,7 +61,12 @@ export function SubjectsPage() {
     }
   }, [isAdmin, teachers.length, teachersLoading]);
 
-  useEffect(() => { void loadSubjects(); }, [loadSubjects]);
+  useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
+    void loadSubjects();
+  }, [authReady, loadSubjects, user]);
 
   useEffect(() => {
     if (open) void loadTeachers();
@@ -108,6 +113,10 @@ export function SubjectsPage() {
       setError(apiErrorMessage(err, 'Failed to assign teacher.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">

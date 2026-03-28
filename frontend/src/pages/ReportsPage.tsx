@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import api from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
+import { useAuth } from '../hooks/useAuth';
 
 interface SchoolClass {
   id: number;
@@ -16,6 +17,7 @@ function getError(error: unknown) {
 }
 
 export function ReportsPage() {
+  const { user, authReady } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
   const [loading, setLoading] = useState(true);
@@ -39,8 +41,11 @@ export function ReportsPage() {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
     void loadClasses();
-  }, [loadClasses]);
+  }, [authReady, loadClasses, user]);
 
   useEffect(() => {
     if (classes.length > 0 && selectedClassId === '') {
@@ -49,6 +54,10 @@ export function ReportsPage() {
   }, [classes, selectedClassId]);
 
   const canExport = useMemo(() => selectedClassId !== '', [selectedClassId]);
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   const exportReport = async (format: 'pdf' | 'excel') => {
     if (!selectedClassId) return;

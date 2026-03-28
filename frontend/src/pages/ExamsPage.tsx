@@ -19,7 +19,7 @@ interface Exam {
 interface OptionItem { id: number; name?: string; title?: string; }
 
 export function ExamsPage() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const [rows, setRows] = useState<Exam[]>([]);
   const [classes, setClasses] = useState<OptionItem[]>([]);
   const [subjects, setSubjects] = useState<OptionItem[]>([]);
@@ -68,7 +68,12 @@ export function ExamsPage() {
     }
   }, [filters]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!authReady || !user) {
+      return;
+    }
+    void load();
+  }, [authReady, load, user]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -96,6 +101,10 @@ export function ExamsPage() {
       setError(apiErrorMessage(err, 'Failed to create exam.'));
     }
   };
+
+  if (!authReady) {
+    return <div className="page"><LoadingState title="Restoring session..." /></div>;
+  }
 
   return (
     <div className="page">
