@@ -20,13 +20,13 @@ public class JwtService {
 
     public String generateToken(String subject, Map<String, Object> claims) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(subject)
-                .claims(claims)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
-                .signWith(signingKey())
-                .compact();
+                .signWith(signingKey());
+        claims.forEach(builder::claim);
+        return builder.compact();
     }
 
     public Claims parse(String token) {

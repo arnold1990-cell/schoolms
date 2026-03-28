@@ -2,6 +2,7 @@ package com.schoolms.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.schoolms.security.JwtService;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
@@ -35,6 +36,8 @@ class AuthControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private JwtService jwtService;
 
     @BeforeEach
     void setUp() {
@@ -113,6 +116,14 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value("teacher@schoolms.com"))
                 .andExpect(jsonPath("$.data.role").value("TEACHER"));
+    }
+
+    @Test
+    void loginTokenContainsEmailSubjectForJwtFilterLookup() throws Exception {
+        String token = loginAndGetToken("admin@schoolms.com", "Admin123!");
+        String subject = jwtService.parse(token).getSubject();
+
+        org.assertj.core.api.Assertions.assertThat(subject).isEqualTo("admin@schoolms.com");
     }
 
     private void createUser(String email, String password, Role role, boolean enabled) {
