@@ -17,8 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -67,6 +67,15 @@ class SubjectAuthorizationIntegrationTest {
     }
 
     @Test
+    void getSubjectsWithAdminTokenIsSuccessful() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/subjects")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void postSubjectWithAdminTokenIsSuccessful() throws Exception {
         String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
 
@@ -88,7 +97,7 @@ class SubjectAuthorizationIntegrationTest {
         Subject subject = createSubject(adminToken);
         Teacher teacher = createTeacher("assigned.teacher@schoolms.com", "T-100");
 
-        mockMvc.perform(put("/api/subjects/{id}/assign-teacher", subject.getId())
+        mockMvc.perform(post("/api/subjects/{id}/assign-teacher", subject.getId())
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -103,7 +112,7 @@ class SubjectAuthorizationIntegrationTest {
         Subject subject = createSubject(adminToken);
         Teacher teacher = createTeacher("teacher.assign@schoolms.com", "T-101");
 
-        mockMvc.perform(put("/api/subjects/{id}/assign-teacher", subject.getId())
+        mockMvc.perform(post("/api/subjects/{id}/assign-teacher", subject.getId())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

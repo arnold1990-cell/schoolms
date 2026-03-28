@@ -70,6 +70,24 @@ class SecurityAuthorizationIntegrationTest {
     }
 
     @Test
+    void adminCanAccessExamsEndpoint() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/exams")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanAccessResultsEndpoint() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/results/class/1")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void anonymousUserCannotAccessProtectedEndpoints() throws Exception {
         mockMvc.perform(get("/api/exams"))
                 .andExpect(status().isUnauthorized());
