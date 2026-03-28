@@ -87,6 +87,18 @@ class StudentIntegrationTest {
                 .andExpect(jsonPath("$.data.admissionNumber").exists());
     }
 
+
+    @Test
+    void createStudentValidationFailureWhenEnrollmentDateMissing() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithoutEnrollmentDate("ADM-105")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.enrollmentDate").exists());
+    }
+
     @Test
     void createStudentDuplicateAdmissionNumber() throws Exception {
         mockMvc.perform(post("/api/students")
@@ -147,6 +159,27 @@ class StudentIntegrationTest {
 
         JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
         return payload.path("data").path("id").asLong();
+    }
+
+
+    private String validPayloadWithoutEnrollmentDate(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "2013-05-12",
+                  "grade": "Grade 7",
+                  "classId": %d,
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
     }
 
     private String validPayload(String admissionNumber) {

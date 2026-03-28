@@ -16,7 +16,8 @@ spring:
     open-in-view: false
 
   flyway:
-    enabled: false   # ✅ DISABLE (FIXES YOUR ERROR)
+    enabled: true
+    baseline-on-migrate: true
 
 app:
   jwt:
