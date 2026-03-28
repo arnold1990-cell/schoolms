@@ -1,10 +1,12 @@
 package com.schoolms.subject;
 
 import com.schoolms.common.AppException;
+import com.schoolms.exam.ExamRepository;
 import com.schoolms.teacher.Teacher;
 import com.schoolms.teacher.TeacherRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubjectService {
     private final SubjectRepository subjectRepository;
     private final TeacherRepository teacherRepository;
+    private final ExamRepository examRepository;
 
     @Transactional(readOnly = true)
     public List<SubjectResponse> list() {
@@ -41,9 +44,18 @@ public class SubjectService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void deleteSubject(Long id) {
         Subject subject = getSubject(id);
-        subjectRepository.delete(subject);
+        if (examRepository.existsBySubjectId(id)) {
+            throw new AppException("Cannot delete subject because it is referenced by existing exams", HttpStatus.CONFLICT);
+        }
+
+        try {
+            subjectRepository.delete(subject);
+            subjectRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new AppException("Cannot delete subject because it is referenced by other records", HttpStatus.CONFLICT);
+        }
     }
 
     @Transactional
