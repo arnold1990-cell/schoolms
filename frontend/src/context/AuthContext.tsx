@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (import.meta.env.DEV) {
-          console.debug('[Auth] /api/auth/me request success (bootstrap)');
+          console.debug('[Auth] /api/auth/me request success (bootstrap)', { role: me.role });
         }
         setUser(me);
         localStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
@@ -164,19 +164,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setToken(nextToken);
 
+      const loginUser = typeof result.id === 'number'
+        ? { id: result.id, email: result.email, role: result.role }
+        : null;
+      if (loginUser) {
+        if (import.meta.env.DEV) {
+          console.debug('[Auth] role resolved in frontend auth state (login)', { role: loginUser.role });
+        }
+        setUser(loginUser);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loginUser));
+      }
+
       if (import.meta.env.DEV) {
         console.debug('[Auth] /api/auth/me request start (login)');
       }
       const me = await authService.me();
       if (import.meta.env.DEV) {
-        console.debug('[Auth] /api/auth/me request success (login)');
+        console.debug('[Auth] /api/auth/me request success (login)', { role: me.role });
       }
       setUser(me);
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
       setAuthReady(true);
       return me;
-    } catch (error) {
-      clearSession('login flow failed');
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        clearSession('login flow failed due to invalid token');
+      }
       throw error;
     } finally {
       setLoading(false);

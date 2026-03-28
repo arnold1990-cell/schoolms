@@ -22,6 +22,8 @@ public class AuthController {
 
     @GetMapping("/me")
     public ApiResponse<AuthDtos.MeResponse> me(Authentication authentication) {
-        return ApiResponse.ok("Current user", authService.me(authentication.getName()));
+        AuthDtos.MeResponse me = authService.me(authentication.getName());
+        log.info("AuthController /me resolved user email='{}', role={}", me.email(), me.role());
+        return ApiResponse.ok("Current user", me);
     }
 }
