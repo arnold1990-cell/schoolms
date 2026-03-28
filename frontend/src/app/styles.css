@@ -31,3 +31,11 @@ button:disabled { background:#94a3b8; cursor:not-allowed; }
 .modal-card { width: min(560px, 100%); background: white; border-radius: 12px; padding: 16px; box-shadow: 0 15px 40px rgba(0,0,0,.2); max-height: calc(100vh - 32px); overflow: auto; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .text-button { background: transparent; border: 1px solid #d1d5db; color: #111827; }
+
+.error-text { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+.field-error { color: #b91c1c; font-size: 12px; }
+.learner-form .form-section { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+.two-col-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.accordion-card { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 8px 12px; }
+.accordion-card summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+textarea { padding:10px; border-radius:8px; border:1px solid #d1d5db; min-height:90px; }

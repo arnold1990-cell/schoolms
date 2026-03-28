@@ -6,6 +6,7 @@ import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
 import com.schoolms.student.Student;
 import com.schoolms.student.StudentRepository;
+import com.schoolms.student.StudentStatus;
 import com.schoolms.subject.Subject;
 import com.schoolms.subject.SubjectRepository;
 import com.schoolms.teacher.Teacher;
@@ -165,13 +166,21 @@ public class DataSeeder implements CommandLineRunner {
         subjectRepository.save(subject);
     }
 
-    private void createStudent(String firstName, String lastName, String admissionNumber, SchoolClass schoolClass, String status, String guardianContact) {
+    private void createStudent(String firstName, String lastName, String admissionNumber, SchoolClass schoolClass, String status, String guardianPhone) {
         Student student = new Student();
         student.setFirstName(firstName);
         student.setLastName(lastName);
         student.setAdmissionNumber(admissionNumber);
-        student.setStatus(status);
-        student.setGuardianContact(guardianContact);
+        student.setGender("MALE");
+        student.setDateOfBirth(java.time.LocalDate.of(2014, 1, 1));
+        student.setGrade(schoolClass.getName());
+        student.setEnrollmentDate(java.time.LocalDate.now());
+        student.setGuardianName("Parent of " + firstName);
+        student.setGuardianRelationship("PARENT");
+        student.setGuardianPhone(guardianPhone);
+        student.setAddress("Unknown");
+        student.setStatus(StudentStatus.valueOf(status));
+        student.setUsesTransport(false);
         student.setSchoolClass(schoolClass);
         studentRepository.save(student);
     }
