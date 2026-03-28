@@ -7,13 +7,29 @@ const AUTH_USER_KEY = 'authUser';
 export const UNAUTHORIZED_EVENT = 'schoolms:unauthorized';
 
 const api = axios.create({ baseURL: resolvedBaseUrl });
+let sessionValidationPromise: Promise<boolean> | null = null;
 
 function forceLogoutAfterInvalidSession() {
   if (import.meta.env.DEV) {
     console.debug('[API] unauthorized event fired; removing accessToken and notifying auth context');
   }
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
   window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+}
+
+async function validateActiveSession(token: string): Promise<boolean> {
+  if (!sessionValidationPromise) {
+    sessionValidationPromise = axios.get(`${resolvedBaseUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        sessionValidationPromise = null;
+      });
+  }
+  return sessionValidationPromise;
 }
 
 api.interceptors.request.use((config) => {
@@ -37,7 +53,13 @@ api.interceptors.response.use(
     const hasEstablishedSession = Boolean(localStorage.getItem(AUTH_USER_KEY));
 
     if (status === 401 && hasToken && hasEstablishedSession && !isAuthRequest) {
-      forceLogoutAfterInvalidSession();
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (token) {
+        const hasValidSession = await validateActiveSession(token);
+        if (!hasValidSession) {
+          forceLogoutAfterInvalidSession();
+        }
+      }
     }
 
     if (status === 401 && import.meta.env.DEV) {
