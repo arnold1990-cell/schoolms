@@ -14,6 +14,7 @@ export interface MeResponse {
 
 export interface LoginResponse {
   accessToken: string;
+  id: number | null;
   email: string;
   role: Role;
 }

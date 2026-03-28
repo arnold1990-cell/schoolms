@@ -53,6 +53,7 @@ class AuthControllerIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.email").value("admin@schoolms.com"))
                 .andExpect(jsonPath("$.data.role").value("ADMIN"))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
@@ -67,6 +68,7 @@ class AuthControllerIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.email").value("teacher@schoolms.com"))
                 .andExpect(jsonPath("$.data.role").value("TEACHER"));
     }

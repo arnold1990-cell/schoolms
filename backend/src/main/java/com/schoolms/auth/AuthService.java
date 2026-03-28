@@ -42,7 +42,7 @@ public class AuthService {
         }
         String token = jwtService.generateToken(user.getEmail(), java.util.Map.of("role", user.getRole().name(), "uid", user.getId()));
         log.info("Login successful for email='{}', role={}", user.getEmail(), user.getRole());
-        return new AuthDtos.LoginResponse(token, user.getEmail(), user.getRole());
+        return new AuthDtos.LoginResponse(token, user.getId(), user.getEmail(), user.getRole());
     }
 
     public AuthDtos.MeResponse me(String email) {
