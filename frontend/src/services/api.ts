@@ -11,6 +11,12 @@ function shouldResetSessionOnUnauthorized(error: unknown): boolean {
   if (status !== 401) return false;
 
   const configUrl = ((error as { config?: { url?: string } })?.config?.url ?? '').toLowerCase();
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    return true;
+  }
+
+  // Auto-reset only when our identity probe fails, or when JWT parsing explicitly failed.
   if (configUrl.includes('/api/auth/me')) {
     return true;
   }
@@ -19,8 +25,7 @@ function shouldResetSessionOnUnauthorized(error: unknown): boolean {
   const authMessage = `${responseData?.message ?? ''} ${responseData?.error ?? ''}`.toLowerCase();
   return authMessage.includes('invalid token')
     || authMessage.includes('expired')
-    || authMessage.includes('jwt')
-    || authMessage.includes('unauthorized');
+    || authMessage.includes('jwt');
 }
 
 api.interceptors.request.use((config) => {

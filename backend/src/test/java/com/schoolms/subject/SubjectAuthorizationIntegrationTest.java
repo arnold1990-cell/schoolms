@@ -66,6 +66,13 @@ class SubjectAuthorizationIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+
+    @Test
+    void getSubjectsWithoutTokenIsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/subjects"))
+                .andExpect(status().isUnauthorized());
+    }
+
     @Test
     void getSubjectsWithAdminTokenIsSuccessful() throws Exception {
         String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");

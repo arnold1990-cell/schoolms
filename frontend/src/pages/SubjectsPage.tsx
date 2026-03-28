@@ -4,9 +4,10 @@ import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
 import { FormModal } from '../components/FormModal';
 import { useAuth } from '../hooks/useAuth';
-import { apiErrorMessage, unwrapItem, unwrapList } from '../utils/apiHelpers';
+import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
+import { assignSubjectTeacher, createSubject, listSubjects, SubjectDto } from '../services/subjectService';
 
-interface Subject { id: number; code: string; name: string; assignedTeacher?: { id: number; firstName?: string; lastName?: string; staffCode?: string } }
+type Subject = SubjectDto;
 interface Teacher { id: number; firstName: string; lastName: string; staffCode: string; }
 
 export function SubjectsPage() {
@@ -29,12 +30,14 @@ export function SubjectsPage() {
     setLoading(true);
     setError('');
     try {
-      const subjectsResponse = await api.get('/api/subjects');
-      setRows(unwrapList<Subject>(subjectsResponse.data));
+      setRows(await listSubjects());
     } catch (err) {
       const message = apiErrorMessage(err, 'Failed to load subjects.');
-      if (message.toLowerCase().includes('403')) {
+      const lowered = message.toLowerCase();
+      if (lowered.includes('403')) {
         setError('You do not have permission to access this data. Please sign in with an ADMIN or TEACHER account.');
+      } else if (lowered.includes('401')) {
+        setError('Your session could not be used for loading subjects. Please sign out and sign in again if this persists.');
       } else {
         setError(message);
       }
@@ -75,10 +78,9 @@ export function SubjectsPage() {
       return;
     }
     try {
-      const createResponse = await api.post('/api/subjects', { code: code.trim().toUpperCase(), name: name.trim() });
-      const createdSubject = unwrapItem<Subject>(createResponse.data);
+      const createdSubject = await createSubject({ code: code.trim().toUpperCase(), name: name.trim() });
       if (createdSubject?.id && teacherId) {
-        await api.post(`/api/subjects/${createdSubject.id}/assign-teacher`, { teacherId: Number(teacherId) });
+        await assignSubjectTeacher(createdSubject.id, Number(teacherId));
       }
       setFeedback('Subject created successfully.');
       setOpen(false);
@@ -97,9 +99,7 @@ export function SubjectsPage() {
       return;
     }
     try {
-      await api.post(`/api/subjects/${assignSubjectId}/assign-teacher`, {
-        teacherId: assignTeacherId ? Number(assignTeacherId) : null,
-      });
+      await assignSubjectTeacher(assignSubjectId, assignTeacherId ? Number(assignTeacherId) : null);
       setFeedback('Teacher assignment updated.');
       setAssignSubjectId(null);
       setAssignTeacherId('');
