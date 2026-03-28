@@ -25,9 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     authService.me()
       .then(setUser)
-      .catch(() => {
-        localStorage.removeItem('accessToken');
-        setUser(null);
+      .catch((error: unknown) => {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 401) {
+          localStorage.removeItem('accessToken');
+          setUser(null);
+          return;
+        }
+        if (import.meta.env.DEV) {
+          console.warn('[Auth] Unable to hydrate session from /api/auth/me', error);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
