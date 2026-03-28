@@ -8,15 +8,21 @@ function asNonEmptyString(value: unknown): string | null {
 
 function normalizeLoginPayload(payload: unknown): LoginResponse {
   const candidate = unwrapItem<Partial<LoginResponse>>(payload);
-  const accessToken = asNonEmptyString(candidate?.accessToken);
+  const accessToken = asNonEmptyString(
+    candidate?.accessToken ?? (candidate as { token?: unknown } | null)?.token
+  );
   const email = asNonEmptyString(candidate?.email);
   const role = candidate?.role;
 
-  if (!accessToken || !email || (role !== 'ADMIN' && role !== 'TEACHER')) {
+  if (!accessToken) {
     throw new Error('Malformed login response');
   }
 
-  return { accessToken, email, role };
+  return {
+    accessToken,
+    email: email ?? '',
+    role: role === 'ADMIN' || role === 'TEACHER' ? role : 'TEACHER',
+  };
 }
 
 function normalizeMePayload(payload: unknown): MeResponse {
