@@ -1,20 +1,22 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { MeResponse } from '../types';
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '../services/authService';
 import { UNAUTHORIZED_EVENT } from '../services/api';
+import { MeResponse } from '../types';
 
-interface AuthContextType {
+const ACCESS_TOKEN_KEY = 'accessToken';
+const AUTH_USER_KEY = 'authUser';
+
+export interface AuthContextValue {
   user: MeResponse | null;
+  token: string | null;
+  isAuthenticated: boolean;
   loading: boolean;
   authReady: boolean;
   login: (email: string, password: string) => Promise<MeResponse>;
   logout: () => void;
 }
 
-const ACCESS_TOKEN_KEY = 'accessToken';
-const AUTH_USER_KEY = 'authUser';
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function readStoredUser(): MeResponse | null {
   const serialized = localStorage.getItem(AUTH_USER_KEY);
@@ -33,6 +35,7 @@ function readStoredUser(): MeResponse | null {
     if (parsed.role !== 'ADMIN' && parsed.role !== 'TEACHER') {
       return null;
     }
+
     return {
       id: parsed.id,
       email: parsed.email,
@@ -48,11 +51,13 @@ function persistUser(user: MeResponse | null): void {
     localStorage.removeItem(AUTH_USER_KEY);
     return;
   }
+
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
 
@@ -60,55 +65,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     setUser(null);
+    setToken(null);
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    const bootstrapAuth = async () => {
-      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-      const cachedUser = readStoredUser();
+    const bootstrap = async () => {
+      setLoading(true);
 
-      if (cachedUser && mounted) {
-        setUser(cachedUser);
+      const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+      const storedUser = readStoredUser();
+
+      if (!active) {
+        return;
       }
 
-      if (!token) {
-        if (mounted) {
-          setLoading(false);
-          setAuthReady(true);
-        }
+      setToken(storedToken);
+      if (storedUser) {
+        setUser(storedUser);
+      }
+
+      if (!storedToken) {
+        setLoading(false);
+        setAuthReady(true);
         return;
       }
 
       try {
         const me = await authService.me();
-        if (!mounted) {
+        if (!active) {
           return;
         }
         setUser(me);
         persistUser(me);
       } catch (error: unknown) {
         const status = (error as { response?: { status?: number } })?.response?.status;
+        if (!active) {
+          return;
+        }
         if (status === 401) {
-          if (mounted) {
-            clearSession();
-          }
+          clearSession();
         } else if (import.meta.env.DEV) {
-          console.warn('[Auth] Unable to hydrate session from /api/auth/me', error);
+          console.warn('[Auth] Session bootstrap could not refresh /api/auth/me. Using cached user if present.', error);
         }
       } finally {
-        if (mounted) {
+        if (active) {
           setLoading(false);
           setAuthReady(true);
         }
       }
     };
 
-    void bootstrapAuth();
+    void bootstrap();
 
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [clearSession]);
 
@@ -125,22 +137,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
+    clearSession();
 
     try {
       const result = await authService.login(email, password);
-      localStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
+      const nextToken = result.accessToken;
+      localStorage.setItem(ACCESS_TOKEN_KEY, nextToken);
+      setToken(nextToken);
 
       const me = await authService.me();
       setUser(me);
       persistUser(me);
+      setAuthReady(true);
       return me;
     } finally {
       setLoading(false);
-      setAuthReady(true);
     }
-  }, []);
+  }, [clearSession]);
 
   const logout = useCallback(() => {
     clearSession();
@@ -148,18 +161,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthReady(true);
   }, [clearSession]);
 
-  const value = useMemo<AuthContextType>(() => ({
+  const value = useMemo<AuthContextValue>(() => ({
     user,
+    token,
+    isAuthenticated: Boolean(user && token),
     loading,
     authReady,
     login,
     logout,
-  }), [authReady, loading, login, logout, user]);
+  }), [authReady, loading, login, logout, token, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
