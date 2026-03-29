@@ -5,6 +5,7 @@ import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,12 +39,7 @@ public class TeacherService {
     public TeacherDtos.TeacherResponse create(TeacherDtos.UpsertTeacherRequest request) {
         validateDuplicates(request, null);
 
-        User user = new User();
-        user.setEmail(normalize(request.email()));
-        user.setPassword(passwordEncoder.encode(resolvePassword(request.password())));
-        user.setRole(Role.TEACHER);
-        user.setEnabled(request.enabled() == null || request.enabled());
-        User savedUser = userRepository.save(user);
+        User savedUser = resolveUserForCreate(request);
 
         Teacher teacher = new Teacher();
         teacher.setUser(savedUser);
@@ -109,8 +105,12 @@ public class TeacherService {
         }
 
         Long linkedUserId = id == null ? null : getTeacher(id).getUser().getId();
-        if (linkedUserId == null ? userRepository.existsByEmailIgnoreCase(email)
-                : userRepository.existsByEmailIgnoreCaseAndIdNot(email, linkedUserId)) {
+        if (linkedUserId == null) {
+            Optional<User> existingUser = userRepository.findByEmail(email);
+            if (existingUser.isPresent() && !canLinkExistingUser(existingUser.get())) {
+                throw new AppException("User email already exists", HttpStatus.CONFLICT);
+            }
+        } else if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, linkedUserId)) {
             throw new AppException("User email already exists", HttpStatus.CONFLICT);
         }
 
@@ -208,6 +208,39 @@ public class TeacherService {
     private String resolvePassword(String password) {
         String normalized = normalizeNullable(password);
         return normalized == null ? "Teacher123!" : normalized;
+    }
+
+    private User resolveUserForCreate(TeacherDtos.UpsertTeacherRequest request) {
+        String email = normalize(request.email());
+        Optional<User> existingUser = userRepository.findByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            if (!canLinkExistingUser(user)) {
+                throw new AppException("User email already exists", HttpStatus.CONFLICT);
+            }
+            user.setRole(Role.TEACHER);
+            if (request.password() != null && !request.password().isBlank()) {
+                user.setPassword(passwordEncoder.encode(request.password().trim()));
+            }
+            if (request.enabled() != null) {
+                user.setEnabled(request.enabled());
+            }
+            return userRepository.save(user);
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(resolvePassword(request.password())));
+        user.setRole(Role.TEACHER);
+        user.setEnabled(request.enabled() == null || request.enabled());
+        return userRepository.save(user);
+    }
+
+    private boolean canLinkExistingUser(User user) {
+        if (user.getRole() != Role.TEACHER) {
+            return false;
+        }
+        return teacherRepository.findByUserId(user.getId()).isEmpty();
     }
 
     private String safe(String value) {

@@ -94,6 +94,7 @@ class MarksEntryFlowIntegrationTest {
 
         mockMvc.perform(get("/api/marks/setup").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(true))
                 .andExpect(jsonPath("$.data.classes[0].id").isNumber())
                 .andExpect(jsonPath("$.data.subjects[0].id").isNumber())
                 .andExpect(jsonPath("$.data.examTypes[0]").value("TEST"));
@@ -107,6 +108,21 @@ class MarksEntryFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].learnerId").isNumber())
                 .andExpect(jsonPath("$.data[0].learnerName").isString());
+    }
+
+    @Test
+    void teacherWithNoAssignmentsGetsNoClasses() throws Exception {
+        User teacherNoAssignmentsUser = createUser("teacher.no.assignments@schoolms.com", Role.TEACHER);
+        createTeacher(teacherNoAssignmentsUser);
+        String token = loginAndGetToken("teacher.no.assignments@schoolms.com", "Password123!");
+
+        mockMvc.perform(get("/api/marks/setup")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(true))
+                .andExpect(jsonPath("$.data.classes").isEmpty())
+                .andExpect(jsonPath("$.data.subjects").isEmpty())
+                .andExpect(jsonPath("$.data.message").value("No classes available for marks entry."));
     }
 
     @Test
