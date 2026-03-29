@@ -10,6 +10,7 @@ import { ResultsPage } from '../pages/ResultsPage';
 import { TeachersPage } from '../pages/TeachersPage';
 import { StudentsPage } from '../pages/StudentsPage';
 import { ClassesPage } from '../pages/ClassesPage';
+import { ClassDetailsPage } from '../pages/ClassDetailsPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
 import { SessionsPage } from '../pages/SessionsPage';
 import { ExamsPage } from '../pages/ExamsPage';
@@ -34,6 +35,7 @@ export function AppRoutes() {
         <Route path="teachers" element={<ProtectedRoute allowedRoles={['ADMIN']}><TeachersPage /></ProtectedRoute>} />
         <Route path="students" element={<ProtectedRoute allowedRoles={['ADMIN']}><StudentsPage /></ProtectedRoute>} />
         <Route path="classes" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClassesPage /></ProtectedRoute>} />
+        <Route path="classes/:id" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClassDetailsPage /></ProtectedRoute>} />
         <Route path="subjects" element={<SubjectsPage />} />
         <Route path="sessions" element={<ProtectedRoute allowedRoles={['ADMIN']}><SessionsPage /></ProtectedRoute>} />
         <Route path="exams" element={<ExamsPage />} />

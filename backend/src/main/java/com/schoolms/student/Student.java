@@ -110,6 +110,6 @@ public class Student extends BaseEntity {
     @Column(length = 1000)
     private String notes;
 
-    @ManyToOne(optional = false)
+    @ManyToOne
     private SchoolClass schoolClass;
 }
