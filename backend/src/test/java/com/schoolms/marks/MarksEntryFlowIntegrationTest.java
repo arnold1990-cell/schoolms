@@ -126,6 +126,23 @@ class MarksEntryFlowIntegrationTest {
     }
 
     @Test
+    void linkedTeacherWithAssignedClassCanLoadSetupFromAssignments() throws Exception {
+        User assignmentTeacherUser = createUser("assignment.teacher@schoolms.com", Role.TEACHER);
+        Teacher assignmentTeacher = createTeacher(assignmentTeacherUser);
+        assignmentTeacher.getAssignedClasses().add(schoolClass);
+        teacherRepository.save(assignmentTeacher);
+
+        String token = loginAndGetToken("assignment.teacher@schoolms.com", "Password123!");
+
+        mockMvc.perform(get("/api/marks/setup")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(true))
+                .andExpect(jsonPath("$.data.classes[0].id").value(schoolClass.getId()))
+                .andExpect(jsonPath("$.data.subjects[0].id").value(subject.getId()));
+    }
+
+    @Test
     void teacherCanSaveDraftAndSubmitMarks() throws Exception {
         String token = loginAndGetToken("teacher@schoolms.com", "Password123!");
         Long learnerId = studentRepository.findAll().get(0).getId();
@@ -192,14 +209,14 @@ class MarksEntryFlowIntegrationTest {
         return userRepository.save(user);
     }
 
-    private void createTeacher(User user) {
+    private Teacher createTeacher(User user) {
         Teacher teacher = new Teacher();
         teacher.setUser(user);
         teacher.setFirstName("Teacher");
         teacher.setLastName(user.getRole().name());
         teacher.setEmployeeNumber("EMP-" + user.getId());
         teacher.setEmail(user.getEmail());
-        teacherRepository.save(teacher);
+        return teacherRepository.save(teacher);
     }
 
     private void createStudent(String admission, String firstName, String lastName, SchoolClass assignedClass) {

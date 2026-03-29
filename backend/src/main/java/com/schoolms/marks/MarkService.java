@@ -257,7 +257,11 @@ public class MarkService {
     }
 
     private Teacher resolveTeacher(User user) {
-        Teacher teacher = teacherRepository.findByUserId(user.getId()).orElse(null);
+        Teacher teacher = teacherRepository.findByUserId(user.getId())
+                .or(() -> teacherRepository.findByEmailIgnoreCase(user.getEmail())
+                        .filter(candidate -> candidate.getUser() != null
+                                && Objects.equals(candidate.getUser().getId(), user.getId())))
+                .orElse(null);
         if (user.getRole() == Role.TEACHER && teacher == null) {
             throw new AppException("Teacher profile is not linked to this account", HttpStatus.FORBIDDEN);
         }
@@ -282,17 +286,27 @@ public class MarkService {
         if (teacher == null || schoolClass == null) {
             return false;
         }
+        boolean explicitlyAssignedToClass = teacher.getAssignedClasses().stream()
+                .anyMatch(assignedClass -> Objects.equals(assignedClass.getId(), schoolClass.getId()));
         boolean isClassTeacher = schoolClass.getClassTeacher() != null && Objects.equals(schoolClass.getClassTeacher().getId(), teacher.getId());
         boolean teachesAssignedSubject = schoolClass.getSubjects().stream()
                 .anyMatch(subject -> subject.getAssignedTeacher() != null && Objects.equals(subject.getAssignedTeacher().getId(), teacher.getId()));
-        return isClassTeacher || teachesAssignedSubject;
+        return explicitlyAssignedToClass || isClassTeacher || teachesAssignedSubject;
     }
 
     private boolean canAccessSubject(User user, Teacher teacher, Subject subject) {
         if (user.getRole() == Role.ADMIN) {
             return true;
         }
-        return teacher != null && subject.getAssignedTeacher() != null && Objects.equals(subject.getAssignedTeacher().getId(), teacher.getId());
+        if (teacher == null || subject == null) {
+            return false;
+        }
+        boolean directlyAssignedSubject = subject.getAssignedTeacher() != null
+                && Objects.equals(subject.getAssignedTeacher().getId(), teacher.getId());
+        boolean subjectInTeacherAssignedClass = teacher.getAssignedClasses().stream()
+                .anyMatch(assignedClass -> assignedClass.getSubjects().stream()
+                        .anyMatch(classSubject -> Objects.equals(classSubject.getId(), subject.getId())));
+        return directlyAssignedSubject || subjectInTeacherAssignedClass;
     }
 
     private Teacher resolveMarkTeacher(User user, Teacher teacher, Exam exam) {
