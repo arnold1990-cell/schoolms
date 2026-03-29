@@ -44,7 +44,7 @@ export function ExamsPage() {
   const [filters, setFilters] = useState({ classId: '', subjectId: '', status: '' });
   const [form, setForm] = useState({ title: '', classId: '', subjectId: '', term: '' as '' | ExamTerm, sessionId: '', examDate: '', durationMinutes: '90', totalMarks: '100', status: 'DRAFT' });
 
-  const canCreate = useMemo(() => user?.role === 'ADMIN' || user?.role === 'TEACHER', [user?.role]);
+  const isAdmin = useMemo(() => user?.role === 'ADMIN', [user?.role]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,11 +78,11 @@ export function ExamsPage() {
   }, [filters]);
 
   useEffect(() => {
-    if (!authReady || !user || !token) {
+    if (!authReady || !user || !token || !isAdmin) {
       return;
     }
     void load();
-  }, [authReady, load, token, user]);
+  }, [authReady, isAdmin, load, token, user]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -115,9 +115,13 @@ export function ExamsPage() {
     return <div className="page"><LoadingState title="Restoring session..." /></div>;
   }
 
+  if (!isAdmin) {
+    return <div className="page"><ErrorState message="Only administrators can access Exams setup." /></div>;
+  }
+
   return (
     <div className="page">
-      <PageHeader title="Exams" subtitle="Create exams and filter by class, subject, and status." actionLabel="Create Exam" onAction={() => setOpen(true)} disabled={!canCreate} disabledReason="You do not have permission to create exams." />
+      <PageHeader title="Exams" subtitle="Create exams and filter by class, subject, and status." actionLabel="Create Exam" onAction={() => setOpen(true)} disabled={!isAdmin} disabledReason="Only administrators can create exams." />
       {feedback ? <p className="success-text">{feedback}</p> : null}
 
       <div className="toolbar-row">

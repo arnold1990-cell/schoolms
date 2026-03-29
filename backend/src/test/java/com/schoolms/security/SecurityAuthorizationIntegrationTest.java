@@ -61,12 +61,12 @@ class SecurityAuthorizationIntegrationTest {
     }
 
     @Test
-    void teacherCanAccessTeacherAllowedEndpoint() throws Exception {
+    void teacherCannotAccessAdminOnlyExamsEndpoint() throws Exception {
         String teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
 
         mockMvc.perform(get("/api/exams")
                         .header("Authorization", "Bearer " + teacherToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
