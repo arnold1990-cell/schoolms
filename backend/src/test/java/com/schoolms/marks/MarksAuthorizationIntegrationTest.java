@@ -52,6 +52,39 @@ class MarksAuthorizationIntegrationTest {
     }
 
     @Test
+    void adminCanReadMarksEndpoint() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/marks/exam/1")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void teacherCanLoadMarksSetupData() throws Exception {
+        String teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
+
+        mockMvc.perform(get("/api/marks/setup")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanLoadMarksSetupData() throws Exception {
+        String adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
+
+        mockMvc.perform(get("/api/marks/setup")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void anonymousCannotLoadMarksSetupData() throws Exception {
+        mockMvc.perform(get("/api/marks/setup"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void anonymousCannotReadMarksEndpoint() throws Exception {
         mockMvc.perform(get("/api/marks/exam/1"))
                 .andExpect(status().isUnauthorized());
