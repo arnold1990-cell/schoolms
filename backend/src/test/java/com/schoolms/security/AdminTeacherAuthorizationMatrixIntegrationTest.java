@@ -5,7 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.schoolms.subject.Subject;
 import com.schoolms.subject.SubjectRepository;
 import com.schoolms.teacher.Teacher;
+import com.schoolms.teacher.TeacherGender;
 import com.schoolms.teacher.TeacherRepository;
+import com.schoolms.teacher.TeacherStatus;
+import com.schoolms.teacher.TeacherTitle;
+import com.schoolms.teacher.EmploymentType;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
@@ -18,6 +22,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -189,6 +195,15 @@ class AdminTeacherAuthorizationMatrixIntegrationTest {
         teacher.setLastName("Doe");
         teacher.setStaffCode(staffCode);
         teacher.setPhone("000-000-0000");
+        teacher.setTitle(TeacherTitle.MS);
+        teacher.setGender(TeacherGender.FEMALE);
+        teacher.setDepartment("Academics");
+        teacher.setSpecialization("Science");
+        teacher.setEmploymentType(EmploymentType.FULL_TIME);
+        teacher.setHireDate(LocalDate.of(2024, 1, 1));
+        teacher.setStatus(TeacherStatus.ACTIVE);
+        teacher.setAddress("School Campus");
+        teacher.setEmail(email);
         teacher.setUser(user);
         return teacherRepository.save(teacher);
     }

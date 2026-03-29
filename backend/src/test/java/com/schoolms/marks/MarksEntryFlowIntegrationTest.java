@@ -13,7 +13,11 @@ import com.schoolms.student.StudentStatus;
 import com.schoolms.subject.Subject;
 import com.schoolms.subject.SubjectRepository;
 import com.schoolms.teacher.Teacher;
+import com.schoolms.teacher.TeacherGender;
 import com.schoolms.teacher.TeacherRepository;
+import com.schoolms.teacher.TeacherStatus;
+import com.schoolms.teacher.TeacherTitle;
+import com.schoolms.teacher.EmploymentType;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
@@ -60,10 +64,9 @@ class MarksEntryFlowIntegrationTest {
         gradeScaleRepository.deleteAll();
         userRepository.deleteAll();
 
-        User admin = createUser("admin@schoolms.com", Role.ADMIN);
+        createUser("admin@schoolms.com", Role.ADMIN);
         User teacherUser = createUser("teacher@schoolms.com", Role.TEACHER);
         createTeacher(teacherUser);
-        createTeacher(admin);
 
         schoolClass = new SchoolClass();
         schoolClass.setName("Grade 7 A");
@@ -108,6 +111,26 @@ class MarksEntryFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].learnerId").isNumber())
                 .andExpect(jsonPath("$.data[0].learnerName").isString());
+    }
+
+    @Test
+    void adminWithoutTeacherProfileCanLoadMarksSetupDataAndLearners() throws Exception {
+        String token = loginAndGetToken("admin@schoolms.com", "Password123!");
+
+        mockMvc.perform(get("/api/marks/setup").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(true))
+                .andExpect(jsonPath("$.data.classes[0].id").isNumber())
+                .andExpect(jsonPath("$.data.subjects[0].id").isNumber());
+
+        mockMvc.perform(get("/api/marks/learners")
+                        .header("Authorization", "Bearer " + token)
+                        .param("classId", schoolClass.getId().toString())
+                        .param("subjectId", subject.getId().toString())
+                        .param("term", ExamTerm.TERM_1.name())
+                        .param("examType", "TEST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].learnerId").isNumber());
     }
 
     @Test
@@ -215,7 +238,16 @@ class MarksEntryFlowIntegrationTest {
         teacher.setFirstName("Teacher");
         teacher.setLastName(user.getRole().name());
         teacher.setEmployeeNumber("EMP-" + user.getId());
+        teacher.setTitle(TeacherTitle.MR);
+        teacher.setGender(TeacherGender.OTHER);
+        teacher.setPhoneNumber("000-000-0000");
         teacher.setEmail(user.getEmail());
+        teacher.setDepartment("Academics");
+        teacher.setSpecialization("General Studies");
+        teacher.setEmploymentType(EmploymentType.FULL_TIME);
+        teacher.setHireDate(LocalDate.of(2024, 1, 1));
+        teacher.setStatus(TeacherStatus.ACTIVE);
+        teacher.setAddress("School Campus");
         return teacherRepository.save(teacher);
     }
 
