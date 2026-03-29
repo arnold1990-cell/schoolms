@@ -9,6 +9,18 @@ import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
 
 interface ExamOption { id: number; title?: string; examCode?: string; totalMarks?: number; }
 interface StudentOption { id: number; fullName: string; admissionNumber: string; }
+interface MarksSetupData { exams: ExamOption[]; students: StudentOption[]; }
+
+function marksSetupErrorMessage(err: unknown): string {
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  if (status === 403) {
+    return 'You are not authorized to load marks setup data. Please contact an administrator.';
+  }
+  if (status === 401) {
+    return 'Your session has expired. Please sign in again.';
+  }
+  return apiErrorMessage(err, 'Failed to load marks module.');
+}
 
 export function MarksPage() {
   const { user } = useAuth();
@@ -24,17 +36,14 @@ export function MarksPage() {
   const [feedback, setFeedback] = useState('');
   const [open, setOpen] = useState(false);
 
-  const loadExams = useCallback(async () => {
-    const examResponse = await api.get('/api/exams');
-    const examList = unwrapList<ExamOption>(examResponse.data);
+  const loadSetupData = useCallback(async () => {
+    const setupResponse = await api.get('/api/marks/setup');
+    const setup = (setupResponse.data?.data ?? setupResponse.data) as MarksSetupData;
+    const examList = unwrapList<ExamOption>(setup.exams);
+    const studentList = unwrapList<StudentOption>(setup.students);
     setExams(examList);
-    if (examList.length > 0) setSelectedExamId((prev) => prev || examList[0].id);
-  }, []);
-
-  const loadStudents = useCallback(async () => {
-    const studentResponse = await api.get('/api/students');
-    const studentList = unwrapList<StudentOption>(studentResponse.data);
     setStudents(studentList);
+    if (examList.length > 0) setSelectedExamId((prev) => prev || examList[0].id);
     if (!selectedStudentId && studentList[0]) setSelectedStudentId(String(studentList[0].id));
   }, [selectedStudentId]);
 
@@ -47,13 +56,13 @@ export function MarksPage() {
     setLoading(true);
     setError('');
     try {
-      await Promise.all([loadExams(), loadStudents()]);
+      await loadSetupData();
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to load marks module.'));
+      setError(marksSetupErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [loadExams, loadStudents]);
+  }, [loadSetupData]);
 
   useEffect(() => { void load(); }, [load]);
 

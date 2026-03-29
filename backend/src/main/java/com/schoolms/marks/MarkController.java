@@ -2,8 +2,10 @@ package com.schoolms.marks;
 
 import com.schoolms.common.ApiResponse;
 import com.schoolms.common.AppException;
+import com.schoolms.exam.Exam;
 import com.schoolms.exam.ExamRepository;
 import com.schoolms.grading.GradingService;
+import com.schoolms.student.Student;
 import com.schoolms.student.StudentRepository;
 import com.schoolms.teacher.TeacherRepository;
 import com.schoolms.user.UserRepository;
@@ -29,6 +31,21 @@ public class MarkController {
     private final UserRepository userRepository;
 
     public record MarkRequest(@NotNull Long examId, @NotNull Long studentId, @NotNull Double score) {}
+    public record ExamOption(Long id, String title, String examCode, Double totalMarks) {}
+    public record StudentOption(Long id, String fullName, String admissionNumber) {}
+    public record MarksSetupResponse(List<ExamOption> exams, List<StudentOption> students) {}
+
+    @GetMapping("/setup")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public ApiResponse<MarksSetupResponse> setupData() {
+        List<ExamOption> exams = examRepository.findAll().stream()
+                .map(this::toExamOption)
+                .toList();
+        List<StudentOption> students = studentRepository.findAll().stream()
+                .map(this::toStudentOption)
+                .toList();
+        return ApiResponse.ok("Marks setup data", new MarksSetupResponse(exams, students));
+    }
 
     @GetMapping("/exam/{examId}")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
@@ -71,5 +88,15 @@ public class MarkController {
         mark.setScore(request.score());
         mark.setGrade(gradingService.resolveGrade(request.score()));
         return ApiResponse.ok("Mark updated", repository.save(mark));
+    }
+
+    private ExamOption toExamOption(Exam exam) {
+        return new ExamOption(exam.getId(), exam.getTitle(), exam.getExamCode(), exam.getTotalMarks());
+    }
+
+    private StudentOption toStudentOption(Student student) {
+        String middleName = student.getMiddleName() == null ? "" : student.getMiddleName().trim();
+        String fullName = (student.getFirstName() + " " + middleName + " " + student.getLastName()).trim().replaceAll("\\s+", " ");
+        return new StudentOption(student.getId(), fullName, student.getAdmissionNumber());
     }
 }
