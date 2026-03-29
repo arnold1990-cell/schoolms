@@ -32,7 +32,7 @@ function termLabel(term: ExamTerm): string {
 }
 
 export function ExamsPage() {
-  const { user, authReady } = useAuth();
+  const { user, token, authReady } = useAuth();
   const [rows, setRows] = useState<Exam[]>([]);
   const [classes, setClasses] = useState<OptionItem[]>([]);
   const [subjects, setSubjects] = useState<OptionItem[]>([]);
@@ -78,11 +78,11 @@ export function ExamsPage() {
   }, [filters]);
 
   useEffect(() => {
-    if (!authReady || !user) {
+    if (!authReady || !user || !token) {
       return;
     }
     void load();
-  }, [authReady, load, user]);
+  }, [authReady, load, token, user]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
