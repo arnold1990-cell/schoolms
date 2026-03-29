@@ -143,6 +143,8 @@ public class DataSeeder implements CommandLineRunner {
             userRepository.save(teacher);
             log.info("Teacher account created with default credentials.");
         });
+
+        ensureTeacherProfileForDemoAccount();
     }
 
     private Teacher createTeacher(String firstName, String lastName, String staffCode, String email, String phone) {

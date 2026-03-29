@@ -44,6 +44,7 @@ function localGrade(mark: number | null): string {
 export function MarksPage() {
   const { user } = useAuth();
   const canWrite = useMemo(() => user?.role === 'ADMIN' || user?.role === 'TEACHER', [user?.role]);
+  const isTeacher = user?.role === 'TEACHER';
 
   const [setup, setSetup] = useState<MarksSetupData>({ classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'], teacherProfileLinked: true });
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
@@ -163,7 +164,7 @@ export function MarksPage() {
       {error ? <p className="error-text">{error}</p> : null}
 
       {loading ? <LoadingState title="Loading marks setup..." /> : null}
-      {!loading && !setup.teacherProfileLinked ? (
+      {!loading && isTeacher && !setup.teacherProfileLinked ? (
         <EmptyState title="Teacher profile is not linked to this account" message={setup.message || 'Your teacher account is not linked to a teacher profile. Please contact an administrator.'} />
       ) : null}
       {!loading && setup.teacherProfileLinked && setup.classes.length === 0 ? (

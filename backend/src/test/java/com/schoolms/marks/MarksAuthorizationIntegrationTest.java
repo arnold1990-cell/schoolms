@@ -78,7 +78,11 @@ class MarksAuthorizationIntegrationTest {
 
         mockMvc.perform(get("/api/marks/setup")
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(true))
+                .andExpect(jsonPath("$.data.terms[0]").value("TERM_1"))
+                .andExpect(jsonPath("$.data.terms[1]").value("TERM_2"))
+                .andExpect(jsonPath("$.data.terms[2]").value("TERM_3"));
     }
 
     @Test
