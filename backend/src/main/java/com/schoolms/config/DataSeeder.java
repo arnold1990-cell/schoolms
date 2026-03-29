@@ -9,13 +9,18 @@ import com.schoolms.student.StudentRepository;
 import com.schoolms.student.StudentStatus;
 import com.schoolms.subject.Subject;
 import com.schoolms.subject.SubjectRepository;
+import com.schoolms.teacher.EmploymentType;
 import com.schoolms.teacher.Teacher;
+import com.schoolms.teacher.TeacherGender;
 import com.schoolms.teacher.TeacherRepository;
+import com.schoolms.teacher.TeacherStatus;
+import com.schoolms.teacher.TeacherTitle;
 import com.schoolms.term.Term;
 import com.schoolms.term.TermRepository;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -96,12 +101,15 @@ public class DataSeeder implements CommandLineRunner {
         Teacher t1 = createTeacher("Alice", "Johnson", "TCH-1001", "alice.johnson@schoolms.com", "555-0101");
         Teacher t2 = createTeacher("Brian", "Kim", "TCH-1002", "brian.kim@schoolms.com", "555-0102");
 
-        createSubject("MATH101", "Mathematics", linkedTeacher);
+        Subject math = createSubject("MATH101", "Mathematics", linkedTeacher);
         createSubject("ENG101", "English Language", t2);
         createSubject("SCI101", "Integrated Science", t1);
 
         classOne.setClassTeacher(linkedTeacher);
+        classOne.getSubjects().add(math);
         classRepository.save(classOne);
+        linkedTeacher.getAssignedClasses().add(classOne);
+        teacherRepository.save(linkedTeacher);
 
         createStudent("Liam", "Walker", "ADM-001", classOne, "ACTIVE", "555-0201");
         createStudent("Emma", "Davis", "ADM-002", classOne, "ACTIVE", "555-0202");
@@ -155,37 +163,49 @@ public class DataSeeder implements CommandLineRunner {
         user.setEnabled(true);
         user = userRepository.save(user);
 
-        Teacher teacher = new Teacher();
-        teacher.setFirstName(firstName);
-        teacher.setLastName(lastName);
-        teacher.setStaffCode(staffCode);
-        teacher.setPhone(phone);
-        teacher.setUser(user);
-        return teacherRepository.save(teacher);
+        return teacherRepository.save(buildTeacherProfile(new Teacher(), user, firstName, lastName, staffCode, phone, email));
     }
 
     private Teacher ensureTeacherProfileForDemoAccount() {
         User teacherUser = userRepository.findByEmail("teacher@schoolms.com")
                 .orElseThrow(() -> new IllegalStateException("Teacher seed account was not created"));
 
-        return teacherRepository.findByUserId(teacherUser.getId()).orElseGet(() -> {
-            Teacher teacher = new Teacher();
-            teacher.setUser(teacherUser);
-            teacher.setFirstName("Demo");
-            teacher.setLastName("Teacher");
-            teacher.setStaffCode("TCH-DEMO");
-            teacher.setPhone("555-0000");
-            teacher.setEmail(teacherUser.getEmail());
-            return teacherRepository.save(teacher);
-        });
+        Teacher teacher = teacherRepository.findByUserId(teacherUser.getId())
+                .or(() -> teacherRepository.findByEmailIgnoreCase(teacherUser.getEmail()))
+                .orElseGet(Teacher::new);
+        buildTeacherProfile(teacher, teacherUser, "Demo", "Teacher", "TCH-DEMO", "555-0000", teacherUser.getEmail());
+        return teacherRepository.save(teacher);
     }
 
-    private void createSubject(String code, String name, Teacher teacher) {
+    private Subject createSubject(String code, String name, Teacher teacher) {
         Subject subject = new Subject();
         subject.setCode(code);
         subject.setName(name);
         subject.setAssignedTeacher(teacher);
-        subjectRepository.save(subject);
+        return subjectRepository.save(subject);
+    }
+
+    private Teacher buildTeacherProfile(Teacher teacher, User user, String firstName, String lastName, String employeeNumber, String phoneNumber, String email) {
+        teacher.setUser(user);
+        teacher.setFirstName(firstName);
+        teacher.setLastName(lastName);
+        teacher.setEmployeeNumber(employeeNumber);
+        teacher.setPhoneNumber(phoneNumber);
+        teacher.setEmail(email);
+        teacher.setTitle(teacher.getTitle() == null ? TeacherTitle.MR : teacher.getTitle());
+        teacher.setGender(teacher.getGender() == null ? TeacherGender.OTHER : teacher.getGender());
+        teacher.setDepartment(isBlank(teacher.getDepartment()) ? "Academics" : teacher.getDepartment());
+        teacher.setSpecialization(isBlank(teacher.getSpecialization()) ? "General Studies" : teacher.getSpecialization());
+        teacher.setEmploymentType(teacher.getEmploymentType() == null ? EmploymentType.FULL_TIME : teacher.getEmploymentType());
+        teacher.setHireDate(teacher.getHireDate() == null ? LocalDate.now() : teacher.getHireDate());
+        teacher.setStatus(teacher.getStatus() == null ? TeacherStatus.ACTIVE : teacher.getStatus());
+        teacher.setAddress(isBlank(teacher.getAddress()) ? "School Campus" : teacher.getAddress());
+        teacher.setStaffRole(isBlank(teacher.getStaffRole()) ? "SUBJECT_TEACHER" : teacher.getStaffRole());
+        return teacher;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void createStudent(String firstName, String lastName, String admissionNumber, SchoolClass schoolClass, String status, String guardianPhone) {

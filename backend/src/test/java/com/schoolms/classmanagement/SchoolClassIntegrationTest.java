@@ -7,8 +7,12 @@ import com.schoolms.student.StudentRepository;
 import com.schoolms.student.StudentStatus;
 import com.schoolms.subject.Subject;
 import com.schoolms.subject.SubjectRepository;
+import com.schoolms.teacher.EmploymentType;
 import com.schoolms.teacher.Teacher;
+import com.schoolms.teacher.TeacherGender;
 import com.schoolms.teacher.TeacherRepository;
+import com.schoolms.teacher.TeacherStatus;
+import com.schoolms.teacher.TeacherTitle;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
@@ -200,6 +204,15 @@ class SchoolClassIntegrationTest {
         teacher.setLastName("Doe");
         teacher.setStaffCode(staffCode);
         teacher.setPhone("000-000-0000");
+        teacher.setTitle(TeacherTitle.MS);
+        teacher.setGender(TeacherGender.FEMALE);
+        teacher.setDepartment("Academics");
+        teacher.setSpecialization("Science");
+        teacher.setEmploymentType(EmploymentType.FULL_TIME);
+        teacher.setHireDate(LocalDate.of(2024, 1, 1));
+        teacher.setStatus(TeacherStatus.ACTIVE);
+        teacher.setAddress("School Campus");
+        teacher.setEmail(email);
         teacher.setUser(user);
         return teacherRepository.save(teacher).getId();
     }
