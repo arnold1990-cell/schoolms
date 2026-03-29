@@ -18,7 +18,14 @@ public class MarkController {
     public record MarkRequest(@NotNull Long examId, @NotNull Long studentId, @NotNull Double score) {}
     public record ClassOption(Long id, String name, String code) {}
     public record SubjectOption(Long id, String name, String code) {}
-    public record MarksSetupResponse(List<ClassOption> classes, List<SubjectOption> subjects, List<String> examTypes, List<ExamTerm> terms) {}
+    public record MarksSetupResponse(
+            List<ClassOption> classes,
+            List<SubjectOption> subjects,
+            List<String> examTypes,
+            List<ExamTerm> terms,
+            boolean teacherProfileLinked,
+            String message
+    ) {}
     public record LearnerMarkRow(Long learnerId, String learnerName, Double mark, String grade) {}
     public record LearnerMarkEntry(@NotNull Long learnerId, Double mark) {}
     public record BulkMarkRequest(@NotNull Long classId, @NotNull Long subjectId, @NotNull ExamTerm term, @NotNull String examType, List<LearnerMarkEntry> entries) {}

@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -64,9 +65,11 @@ class MarksAuthorizationIntegrationTest {
     void teacherCanLoadMarksSetupData() throws Exception {
         String teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
 
-        mockMvc.perform(get("/api/marks/setup")
+                mockMvc.perform(get("/api/marks/setup")
                         .header("Authorization", "Bearer " + teacherToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teacherProfileLinked").value(false))
+                .andExpect(jsonPath("$.data.classes").isArray());
     }
 
     @Test

@@ -8,7 +8,14 @@ import { apiErrorMessage, unwrapList, unwrapItem } from '../utils/apiHelpers';
 interface ClassOption { id: number; name: string; code?: string; }
 interface SubjectOption { id: number; name: string; code?: string; }
 type TermOption = 'TERM_1' | 'TERM_2' | 'TERM_3';
-interface MarksSetupData { classes: ClassOption[]; subjects: SubjectOption[]; examTypes: string[]; terms: TermOption[]; }
+interface MarksSetupData {
+  classes: ClassOption[];
+  subjects: SubjectOption[];
+  examTypes: string[];
+  terms: TermOption[];
+  teacherProfileLinked: boolean;
+  message?: string;
+}
 interface LearnerMarkRow { learnerId: number; learnerName: string; mark: number | null; grade: string | null; }
 
 interface BulkMarkPayload {
@@ -38,7 +45,7 @@ export function MarksPage() {
   const { user } = useAuth();
   const canWrite = useMemo(() => user?.role === 'ADMIN' || user?.role === 'TEACHER', [user?.role]);
 
-  const [setup, setSetup] = useState<MarksSetupData>({ classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'] });
+  const [setup, setSetup] = useState<MarksSetupData>({ classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'], teacherProfileLinked: true });
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
   const [selectedExamType, setSelectedExamType] = useState('');
@@ -57,12 +64,14 @@ export function MarksPage() {
     setError('');
     try {
       const response = await api.get('/api/marks/setup');
-      const payload = unwrapItem<MarksSetupData>(response.data) ?? { classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'] };
+      const payload = unwrapItem<MarksSetupData>(response.data) ?? { classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'], teacherProfileLinked: true };
       const nextSetup: MarksSetupData = {
         classes: unwrapList<ClassOption>(payload.classes),
         subjects: unwrapList<SubjectOption>(payload.subjects),
         examTypes: unwrapList<string>(payload.examTypes),
         terms: unwrapList<TermOption>(payload.terms),
+        teacherProfileLinked: payload.teacherProfileLinked ?? true,
+        message: payload.message,
       };
       setSetup(nextSetup);
       setSelectedClassId((prev) => prev || nextSetup.classes[0]?.id || '');
@@ -154,9 +163,14 @@ export function MarksPage() {
       {error ? <p className="error-text">{error}</p> : null}
 
       {loading ? <LoadingState title="Loading marks setup..." /> : null}
-      {!loading && setup.classes.length === 0 ? <EmptyState title="No classes" message="No classes available for marks entry." /> : null}
+      {!loading && !setup.teacherProfileLinked ? (
+        <EmptyState title="Teacher profile is not linked to this account" message={setup.message || 'Your teacher account is not linked to a teacher profile. Please contact an administrator.'} />
+      ) : null}
+      {!loading && setup.teacherProfileLinked && setup.classes.length === 0 ? (
+        <EmptyState title="No classes" message={setup.message || 'No classes available for marks entry.'} />
+      ) : null}
 
-      {!loading && !error ? (
+      {!loading && !error && setup.teacherProfileLinked && setup.classes.length > 0 ? (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="grid">
             <label>Class

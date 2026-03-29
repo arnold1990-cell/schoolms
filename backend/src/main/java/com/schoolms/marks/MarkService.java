@@ -44,7 +44,17 @@ public class MarkService {
     @Transactional(readOnly = true)
     public MarkController.MarksSetupResponse setupData(String userEmail) {
         User user = findUser(userEmail);
-        Teacher teacher = resolveTeacher(user);
+        Teacher teacher = teacherRepository.findByUserId(user.getId()).orElse(null);
+        if (user.getRole() == Role.TEACHER && teacher == null) {
+            return new MarkController.MarksSetupResponse(
+                    List.of(),
+                    List.of(),
+                    EXAM_TYPES,
+                    List.of(ExamTerm.TERM_1, ExamTerm.TERM_2, ExamTerm.TERM_3),
+                    false,
+                    "Your teacher account is not linked to a teacher profile. Please contact an administrator."
+            );
+        }
 
         List<SchoolClass> classes = classRepository.findAll().stream()
                 .filter(schoolClass -> canAccessClass(user, teacher, schoolClass))
@@ -56,11 +66,17 @@ public class MarkService {
                 .sorted(Comparator.comparing(Subject::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
 
+        String message = classes.isEmpty()
+                ? "No classes available for marks entry."
+                : "Marks setup loaded successfully.";
+
         return new MarkController.MarksSetupResponse(
                 classes.stream().map(c -> new MarkController.ClassOption(c.getId(), c.getName(), c.getCode())).toList(),
                 subjects.stream().map(s -> new MarkController.SubjectOption(s.getId(), s.getName(), s.getCode())).toList(),
                 EXAM_TYPES,
-                List.of(ExamTerm.TERM_1, ExamTerm.TERM_2, ExamTerm.TERM_3)
+                List.of(ExamTerm.TERM_1, ExamTerm.TERM_2, ExamTerm.TERM_3),
+                true,
+                message
         );
     }
 

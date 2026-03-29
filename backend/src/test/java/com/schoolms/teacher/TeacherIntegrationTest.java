@@ -125,6 +125,25 @@ class TeacherIntegrationTest {
     }
 
     @Test
+    void createTeacherLinksExistingTeacherUserAccount() throws Exception {
+        User orphanTeacherUser = new User();
+        orphanTeacherUser.setEmail("teacher@schoolms.com");
+        orphanTeacherUser.setPassword(passwordEncoder.encode("Teacher123!"));
+        orphanTeacherUser.setRole(Role.TEACHER);
+        orphanTeacherUser.setEnabled(true);
+        orphanTeacherUser = userRepository.save(orphanTeacherUser);
+
+        mockMvc.perform(post("/api/teachers")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(basePayload("EMP-LINK", "teacher@schoolms.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value("teacher@schoolms.com"));
+
+        org.assertj.core.api.Assertions.assertThat(teacherRepository.findByUserId(orphanTeacherUser.getId())).isPresent();
+    }
+
+    @Test
     void fetchTeacherById() throws Exception {
         String createdJson = mockMvc.perform(post("/api/teachers")
                         .header("Authorization", "Bearer " + adminToken)

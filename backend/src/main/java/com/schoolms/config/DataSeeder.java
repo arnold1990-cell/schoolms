@@ -92,12 +92,16 @@ public class DataSeeder implements CommandLineRunner {
         classTwo.setStream("B");
         classTwo = classRepository.save(classTwo);
 
+        Teacher linkedTeacher = ensureTeacherProfileForDemoAccount();
         Teacher t1 = createTeacher("Alice", "Johnson", "TCH-1001", "alice.johnson@schoolms.com", "555-0101");
         Teacher t2 = createTeacher("Brian", "Kim", "TCH-1002", "brian.kim@schoolms.com", "555-0102");
 
-        createSubject("MATH101", "Mathematics", t1);
+        createSubject("MATH101", "Mathematics", linkedTeacher);
         createSubject("ENG101", "English Language", t2);
         createSubject("SCI101", "Integrated Science", t1);
+
+        classOne.setClassTeacher(linkedTeacher);
+        classRepository.save(classOne);
 
         createStudent("Liam", "Walker", "ADM-001", classOne, "ACTIVE", "555-0201");
         createStudent("Emma", "Davis", "ADM-002", classOne, "ACTIVE", "555-0202");
@@ -156,6 +160,22 @@ public class DataSeeder implements CommandLineRunner {
         teacher.setPhone(phone);
         teacher.setUser(user);
         return teacherRepository.save(teacher);
+    }
+
+    private Teacher ensureTeacherProfileForDemoAccount() {
+        User teacherUser = userRepository.findByEmail("teacher@schoolms.com")
+                .orElseThrow(() -> new IllegalStateException("Teacher seed account was not created"));
+
+        return teacherRepository.findByUserId(teacherUser.getId()).orElseGet(() -> {
+            Teacher teacher = new Teacher();
+            teacher.setUser(teacherUser);
+            teacher.setFirstName("Demo");
+            teacher.setLastName("Teacher");
+            teacher.setStaffCode("TCH-DEMO");
+            teacher.setPhone("555-0000");
+            teacher.setEmail(teacherUser.getEmail());
+            return teacherRepository.save(teacher);
+        });
     }
 
     private void createSubject(String code, String name, Teacher teacher) {
