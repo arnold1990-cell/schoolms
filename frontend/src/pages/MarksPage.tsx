@@ -1,126 +1,235 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
-import { DataTable } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
-import { FormModal } from '../components/FormModal';
 import { useAuth } from '../hooks/useAuth';
-import { apiErrorMessage, unwrapList } from '../utils/apiHelpers';
+import { apiErrorMessage, unwrapList, unwrapItem } from '../utils/apiHelpers';
 
-interface ExamOption { id: number; title?: string; examCode?: string; totalMarks?: number; }
-interface StudentOption { id: number; fullName: string; admissionNumber: string; }
-interface MarksSetupData { exams: ExamOption[]; students: StudentOption[]; }
+interface ClassOption { id: number; name: string; code?: string; }
+interface SubjectOption { id: number; name: string; code?: string; }
+type TermOption = 'TERM_1' | 'TERM_2' | 'TERM_3';
+interface MarksSetupData { classes: ClassOption[]; subjects: SubjectOption[]; examTypes: string[]; terms: TermOption[]; }
+interface LearnerMarkRow { learnerId: number; learnerName: string; mark: number | null; grade: string | null; }
 
-function marksSetupErrorMessage(err: unknown): string {
-  const status = (err as { response?: { status?: number } })?.response?.status;
-  if (status === 403) {
-    return 'You are not authorized to load marks setup data. Please contact an administrator.';
-  }
-  if (status === 401) {
-    return 'Your session has expired. Please sign in again.';
-  }
-  return apiErrorMessage(err, 'Failed to load marks module.');
+interface BulkMarkPayload {
+  classId: number;
+  subjectId: number;
+  examType: string;
+  term: TermOption;
+  entries: Array<{ learnerId: number; mark: number | null }>;
+}
+
+const TERM_LABELS: Record<TermOption, string> = {
+  TERM_1: 'Term 1',
+  TERM_2: 'Term 2',
+  TERM_3: 'Term 3',
+};
+
+function localGrade(mark: number | null): string {
+  if (mark === null || Number.isNaN(mark)) return '-';
+  if (mark >= 80) return 'A';
+  if (mark >= 70) return 'B';
+  if (mark >= 60) return 'C';
+  if (mark >= 50) return 'D';
+  return 'F';
 }
 
 export function MarksPage() {
   const { user } = useAuth();
   const canWrite = useMemo(() => user?.role === 'ADMIN' || user?.role === 'TEACHER', [user?.role]);
-  const [exams, setExams] = useState<ExamOption[]>([]);
-  const [students, setStudents] = useState<StudentOption[]>([]);
-  const [selectedExamId, setSelectedExamId] = useState<number | ''>('');
-  const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [score, setScore] = useState('');
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+
+  const [setup, setSetup] = useState<MarksSetupData>({ classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'] });
+  const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
+  const [selectedExamType, setSelectedExamType] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState<TermOption | ''>('');
+
+  const [rows, setRows] = useState<LearnerMarkRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [open, setOpen] = useState(false);
 
-  const loadSetupData = useCallback(async () => {
-    const setupResponse = await api.get('/api/marks/setup');
-    const setup = (setupResponse.data?.data ?? setupResponse.data) as MarksSetupData;
-    const examList = unwrapList<ExamOption>(setup.exams);
-    const studentList = unwrapList<StudentOption>(setup.students);
-    setExams(examList);
-    setStudents(studentList);
-    if (examList.length > 0) setSelectedExamId((prev) => prev || examList[0].id);
-    if (!selectedStudentId && studentList[0]) setSelectedStudentId(String(studentList[0].id));
-  }, [selectedStudentId]);
+  const allSelectorsChosen = Boolean(selectedClassId && selectedSubjectId && selectedExamType && selectedTerm);
 
-  const loadMarks = useCallback(async (examId: number) => {
-    const marksResponse = await api.get(`/api/marks/exam/${examId}`);
-    setRows(unwrapList<Record<string, unknown>>(marksResponse.data));
-  }, []);
-
-  const load = useCallback(async () => {
+  const loadSetup = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      await loadSetupData();
+      const response = await api.get('/api/marks/setup');
+      const payload = unwrapItem<MarksSetupData>(response.data) ?? { classes: [], subjects: [], examTypes: [], terms: ['TERM_1', 'TERM_2', 'TERM_3'] };
+      const nextSetup: MarksSetupData = {
+        classes: unwrapList<ClassOption>(payload.classes),
+        subjects: unwrapList<SubjectOption>(payload.subjects),
+        examTypes: unwrapList<string>(payload.examTypes),
+        terms: unwrapList<TermOption>(payload.terms),
+      };
+      setSetup(nextSetup);
+      setSelectedClassId((prev) => prev || nextSetup.classes[0]?.id || '');
+      setSelectedSubjectId((prev) => prev || nextSetup.subjects[0]?.id || '');
+      setSelectedExamType((prev) => prev || nextSetup.examTypes[0] || '');
+      setSelectedTerm((prev) => prev || nextSetup.terms[0] || '');
     } catch (err) {
-      setError(marksSetupErrorMessage(err));
+      setError(apiErrorMessage(err, 'Failed to load marks setup data.'));
     } finally {
       setLoading(false);
     }
-  }, [loadSetupData]);
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
-
-  useEffect(() => {
-    if (!selectedExamId) return;
-    setLoading(true);
-    setError('');
-    loadMarks(selectedExamId)
-      .catch((err) => setError(apiErrorMessage(err, 'Failed to load marks.')))
-      .finally(() => setLoading(false));
-  }, [loadMarks, selectedExamId]);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedExamId || !selectedStudentId || !score) {
-      setError('Exam, student, and score are required.');
+  const loadLearners = useCallback(async () => {
+    if (!allSelectorsChosen) {
+      setRows([]);
       return;
     }
+    setTableLoading(true);
+    setError('');
     try {
-      await api.post('/api/marks', { examId: Number(selectedExamId), studentId: Number(selectedStudentId), score: Number(score) });
-      setFeedback('Mark saved successfully.');
-      setOpen(false);
-      setScore('');
-      await loadMarks(Number(selectedExamId));
+      const response = await api.get('/api/marks/learners', {
+        params: {
+          classId: selectedClassId,
+          subjectId: selectedSubjectId,
+          examType: selectedExamType,
+          term: selectedTerm,
+        },
+      });
+      setRows(unwrapList<LearnerMarkRow>(response.data));
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to save mark.'));
+      setError(apiErrorMessage(err, 'Failed to load learners for marks entry.'));
+      setRows([]);
+    } finally {
+      setTableLoading(false);
+    }
+  }, [allSelectorsChosen, selectedClassId, selectedExamType, selectedSubjectId, selectedTerm]);
+
+  useEffect(() => { void loadSetup(); }, [loadSetup]);
+
+  useEffect(() => {
+    void loadLearners();
+  }, [loadLearners]);
+
+  const updateMark = (learnerId: number, value: string) => {
+    const parsed = value === '' ? null : Number(value);
+    setRows((prev) => prev.map((row) => {
+      if (row.learnerId !== learnerId) return row;
+      return { ...row, mark: parsed };
+    }));
+  };
+
+  const validate = (): string | null => {
+    if (!allSelectorsChosen) return 'Class, Exam Type, Subject, and Term are required.';
+    const invalid = rows.find((row) => row.mark !== null && (row.mark < 0 || row.mark > 100));
+    if (invalid) return `Mark for ${invalid.learnerName} must be between 0 and 100.`;
+    return null;
+  };
+
+  const persist = async (mode: 'draft' | 'submit') => {
+    setFeedback('');
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const payload: BulkMarkPayload = {
+      classId: Number(selectedClassId),
+      subjectId: Number(selectedSubjectId),
+      examType: selectedExamType,
+      term: selectedTerm as TermOption,
+      entries: rows.map((row) => ({ learnerId: row.learnerId, mark: row.mark })),
+    };
+
+    try {
+      const response = await api.post(`/api/marks/${mode}`, payload);
+      setRows(unwrapList<LearnerMarkRow>(response.data));
+      setFeedback(mode === 'draft' ? 'Draft marks saved successfully.' : 'Marks submitted successfully.');
+      setError('');
+    } catch (err) {
+      setError(apiErrorMessage(err, `Failed to ${mode} marks.`));
     }
   };
 
   return (
     <div className="page">
-      <PageHeader title="Marks" subtitle="View marks by exam and submit student scores." actionLabel="Add Mark" onAction={() => setOpen(true)} disabled={!canWrite || exams.length === 0 || students.length === 0} disabledReason={exams.length === 0 ? 'Create an exam first.' : students.length === 0 ? 'Add students first.' : 'Permission denied.'} />
+      <PageHeader title="Marks Entry" subtitle="Select class, exam type, subject, and term to enter learner marks." />
       {feedback ? <p className="success-text">{feedback}</p> : null}
-      {loading ? <LoadingState title="Loading marks..." /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {error ? <p className="error-text">{error}</p> : null}
 
-      {!loading && !error && exams.length === 0 ? <EmptyState title="No exams available" message="Create an exam first to start entering marks." /> : null}
+      {loading ? <LoadingState title="Loading marks setup..." /> : null}
+      {!loading && setup.classes.length === 0 ? <EmptyState title="No classes" message="No classes available for marks entry." /> : null}
 
-      {!loading && !error && exams.length > 0 ? (
+      {!loading && !error ? (
         <div className="card" style={{ marginBottom: 12 }}>
-          <label htmlFor="marks-exam">Exam</label>{' '}
-          <select id="marks-exam" value={selectedExamId} onChange={(event) => setSelectedExamId(Number(event.target.value))}>
-            {exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title ?? exam.examCode ?? `Exam ${exam.id}`}</option>)}
-          </select>
+          <div className="grid">
+            <label>Class
+              <select value={selectedClassId} onChange={(event) => setSelectedClassId(event.target.value ? Number(event.target.value) : '')}>
+                <option value="">Select class</option>
+                {setup.classes.map((item) => <option key={item.id} value={item.id}>{item.name}{item.code ? ` (${item.code})` : ''}</option>)}
+              </select>
+            </label>
+
+            <label>Exam Type
+              <select value={selectedExamType} onChange={(event) => setSelectedExamType(event.target.value)}>
+                <option value="">Select exam type</option>
+                {setup.examTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+
+            <label>Subject
+              <select value={selectedSubjectId} onChange={(event) => setSelectedSubjectId(event.target.value ? Number(event.target.value) : '')}>
+                <option value="">Select subject</option>
+                {setup.subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+
+            <label>Term
+              <select value={selectedTerm} onChange={(event) => setSelectedTerm(event.target.value as TermOption | '')}>
+                <option value="">Select term</option>
+                {setup.terms.map((item) => <option key={item} value={item}>{TERM_LABELS[item] ?? item}</option>)}
+              </select>
+            </label>
+          </div>
         </div>
       ) : null}
 
-      {!loading && !error && exams.length > 0 && rows.length === 0 ? <EmptyState title="No marks submitted" message="This exam has no marks yet." /> : null}
-      {!loading && !error && rows.length > 0 ? <DataTable rows={rows} /> : null}
+      {!loading && allSelectorsChosen && tableLoading ? <LoadingState title="Loading learners..." /> : null}
+      {!loading && allSelectorsChosen && !tableLoading && rows.length === 0 ? <EmptyState title="No learners found" message="Assign learners to this class to enter marks." /> : null}
 
-      <FormModal title="Add Mark" open={open} onClose={() => setOpen(false)}>
-        <form className="form-grid" onSubmit={submit}>
-          <label>Exam<select value={selectedExamId} onChange={(event) => setSelectedExamId(Number(event.target.value))}>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title ?? exam.examCode}</option>)}</select></label>
-          <label>Student<select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)}>{students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.admissionNumber})</option>)}</select></label>
-          <label>Score<input type="number" step="0.01" value={score} onChange={(event) => setScore(event.target.value)} /></label>
-          <button type="submit">Save Mark</button>
-        </form>
-      </FormModal>
+      {!loading && !tableLoading && rows.length > 0 ? (
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Learner Name</th>
+                <th>Mark</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.learnerId}>
+                  <td>{row.learnerName}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={row.mark ?? ''}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => updateMark(row.learnerId, event.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </td>
+                  <td>{row.grade ?? localGrade(row.mark)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="action-buttons" style={{ marginTop: 12 }}>
+            <button type="button" onClick={() => void persist('draft')} disabled={!canWrite}>Save Draft</button>
+            <button type="button" onClick={() => void persist('submit')} disabled={!canWrite}>Submit</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
