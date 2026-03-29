@@ -5,11 +5,27 @@ ALTER TABLE school_class ADD COLUMN IF NOT EXISTS capacity INTEGER;
 ALTER TABLE school_class ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'ACTIVE' NOT NULL;
 ALTER TABLE school_class ADD COLUMN IF NOT EXISTS class_teacher_id BIGINT;
 
-ALTER TABLE school_class
-    ADD CONSTRAINT IF NOT EXISTS uk_school_class_code UNIQUE (code);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uk_school_class_code'
+    ) THEN
+        ALTER TABLE school_class
+            ADD CONSTRAINT uk_school_class_code UNIQUE (code);
+    END IF;
+END
+$$;
 
-ALTER TABLE school_class
-    ADD CONSTRAINT IF NOT EXISTS fk_school_class_teacher FOREIGN KEY (class_teacher_id) REFERENCES teacher(id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_school_class_teacher'
+    ) THEN
+        ALTER TABLE school_class
+            ADD CONSTRAINT fk_school_class_teacher FOREIGN KEY (class_teacher_id) REFERENCES teacher(id);
+    END IF;
+END
+$$;
 
 UPDATE school_class
 SET code = upper(replace(trim(name), ' ', '-'))
