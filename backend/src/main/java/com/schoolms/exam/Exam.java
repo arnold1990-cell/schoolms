@@ -4,7 +4,6 @@ import com.schoolms.academicsession.AcademicSession;
 import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.common.BaseEntity;
 import com.schoolms.subject.Subject;
-import com.schoolms.term.Term;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import lombok.Getter;
@@ -27,6 +26,8 @@ public class Exam extends BaseEntity {
 
     @ManyToOne private SchoolClass schoolClass;
     @ManyToOne private Subject subject;
-    @ManyToOne private Term term;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ExamTerm term;
     @ManyToOne private AcademicSession academicSession;
 }
