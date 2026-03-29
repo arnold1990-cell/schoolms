@@ -25,6 +25,7 @@ import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -55,6 +56,7 @@ class ExamModuleAuthorizationIntegrationTest {
     @Autowired
     private AcademicSessionRepository sessionRepository;
 
+    private String adminToken;
     private String teacherToken;
     private Long classId;
     private Long subjectId;
@@ -68,7 +70,9 @@ class ExamModuleAuthorizationIntegrationTest {
         sessionRepository.deleteAll();
         userRepository.deleteAll();
 
+        createUser("admin@schoolms.com", "Admin123!", Role.ADMIN);
         createUser("teacher@schoolms.com", "Teacher123!", Role.TEACHER);
+        adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
         teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
 
         SchoolClass schoolClass = new SchoolClass();
@@ -91,21 +95,21 @@ class ExamModuleAuthorizationIntegrationTest {
     }
 
     @Test
-    void authenticatedTeacherCanLoadExamPageDataEndpoints() throws Exception {
+    void authenticatedAdminCanLoadExamPageDataEndpoints() throws Exception {
         mockMvc.perform(get("/api/exams")
-                        .header("Authorization", "Bearer " + teacherToken))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/classes")
-                        .header("Authorization", "Bearer " + teacherToken))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/subjects")
-                        .header("Authorization", "Bearer " + teacherToken))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/sessions")
-                        .header("Authorization", "Bearer " + teacherToken))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
 
@@ -118,12 +122,43 @@ class ExamModuleAuthorizationIntegrationTest {
     }
 
     @Test
-    void authenticatedTeacherCanCreateExamWithTerm1() throws Exception {
+    void authenticatedAdminCanCreateExamWithTerm1() throws Exception {
+        mockMvc.perform(post("/api/exams")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createExamPayload("TERM_1")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedAdminCanUpdateExam() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/exams")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createExamPayload("TERM_1")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long examId = objectMapper.readTree(created.getResponse().getContentAsString()).path("data").path("id").asLong();
+
+        mockMvc.perform(put("/api/exams/{id}", examId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createExamPayload("TERM_2")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedTeacherIsBlockedFromExamsEndpoints() throws Exception {
+        mockMvc.perform(get("/api/exams")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden());
+
         mockMvc.perform(post("/api/exams")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createExamPayload("TERM_1")))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     private String createExamPayload(String term) {

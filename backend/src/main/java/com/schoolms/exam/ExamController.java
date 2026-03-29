@@ -28,7 +28,7 @@ public class ExamController {
                               @NotNull Double totalMarks, ExamStatus status) {}
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<Exam>> list(@RequestParam(required = false) Long classId,
                                        @RequestParam(required = false) Long subjectId,
                                        @RequestParam(required = false) ExamStatus status) {
@@ -41,7 +41,7 @@ public class ExamController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Exam> create(@Valid @RequestBody ExamRequest request) {
         Exam e = new Exam();
         e.setTitle(request.title());
@@ -56,7 +56,7 @@ public class ExamController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Exam> update(@PathVariable Long id, @Valid @RequestBody ExamRequest request) {
         Exam e = examRepository.findById(id).orElseThrow();
         e.setTitle(request.title());

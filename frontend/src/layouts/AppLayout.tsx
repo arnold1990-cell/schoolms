@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 
 const roleMenus: Record<'ADMIN' | 'TEACHER', string[]> = {
   ADMIN: ['dashboard', 'teachers', 'students', 'classes', 'subjects', 'sessions', 'exams', 'marks', 'results', 'reports', 'notifications', 'analytics'],
-  TEACHER: ['dashboard', 'subjects', 'exams', 'marks', 'results', 'notifications', 'analytics'],
+  TEACHER: ['dashboard', 'subjects', 'marks', 'results', 'notifications', 'analytics'],
 };
 
 function toLabel(item: string) {

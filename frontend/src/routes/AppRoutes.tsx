@@ -38,7 +38,7 @@ export function AppRoutes() {
         <Route path="classes/:id" element={<ProtectedRoute allowedRoles={['ADMIN']}><ClassDetailsPage /></ProtectedRoute>} />
         <Route path="subjects" element={<SubjectsPage />} />
         <Route path="sessions" element={<ProtectedRoute allowedRoles={['ADMIN']}><SessionsPage /></ProtectedRoute>} />
-        <Route path="exams" element={<ExamsPage />} />
+        <Route path="exams" element={<ProtectedRoute allowedRoles={['ADMIN']}><ExamsPage /></ProtectedRoute>} />
         <Route path="marks" element={<MarksPage />} />
         <Route path="results" element={<ResultsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
