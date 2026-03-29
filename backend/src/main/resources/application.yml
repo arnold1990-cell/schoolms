@@ -9,7 +9,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -17,7 +17,7 @@ spring:
     open-in-view: false
 
   flyway:
-    enabled: false
+    enabled: true
     baseline-on-migrate: true
 
 app:
