@@ -1,12 +1,15 @@
 package com.schoolms.classmanagement;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 public class SchoolClassDtos {
 
     public record SchoolClassUpsertRequest(
-            @NotBlank(message = "Grade / Level is required") String gradeLevel,
+            @NotBlank(message = "Standard is required")
+            @JsonAlias("gradeLevel")
+            String standard,
             @NotBlank(message = "Stream / Section is required") String streamSection,
             @NotBlank(message = "Academic Year is required") String academicYear,
             @Min(value = 1, message = "Capacity must be a positive number") Integer capacity,
