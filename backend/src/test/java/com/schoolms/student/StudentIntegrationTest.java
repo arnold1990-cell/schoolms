@@ -115,6 +115,36 @@ class StudentIntegrationTest {
     }
 
     @Test
+    void createStudentInvalidClassId() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithClassId("ADM-106", 999999L)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Class not found"));
+    }
+
+    @Test
+    void createStudentInvalidDateFormat() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithInvalidDate("ADM-107")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid date value. Use yyyy-MM-dd format"));
+    }
+
+    @Test
+    void createStudentInvalidEnumValue() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithInvalidStatus("ADM-108")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid status value"));
+    }
+
+    @Test
     void fetchStudentById() throws Exception {
         long studentId = createStudentAndGetId("ADM-102");
 
@@ -177,6 +207,69 @@ class StudentIntegrationTest {
                   "guardianPhone": "555-0001",
                   "address": "Central Road",
                   "status": "ACTIVE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
+    private String validPayloadWithClassId(String admissionNumber, long requestedClassId) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "2013-05-12",
+                  "grade": "Grade 7",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, requestedClassId);
+    }
+
+    private String validPayloadWithInvalidDate(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "05/12/2013",
+                  "grade": "Grade 7",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
+    private String validPayloadWithInvalidStatus(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "2013-05-12",
+                  "grade": "Grade 7",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVEE",
                   "email": "jane.doe@example.com"
                 }
                 """.formatted(admissionNumber, classId);
