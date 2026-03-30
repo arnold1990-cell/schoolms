@@ -281,6 +281,10 @@ export function StudentsPage() {
     }
 
     const selectedClass = classes.find((item) => item.id === Number(form.classId));
+    const optionalStringOrNull = (value: string) => {
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    };
     const payload = {
       ...form,
       admissionNumber: form.admissionNumber.trim(),
@@ -290,11 +294,47 @@ export function StudentsPage() {
       guardianRelationship: form.guardianRelationship.trim(),
       guardianPhone: form.guardianPhone.trim(),
       address: form.address.trim(),
-      grade: selectedClass?.name ?? form.grade.trim(),
+      grade: selectedClass?.name ?? optionalStringOrNull(form.grade),
       classId: Number(form.classId),
-      addressLine1: form.addressLine1 || form.address,
-      email: form.email || null,
-      guardianEmail: form.guardianEmail || null,
+      middleName: optionalStringOrNull(form.middleName),
+      preferredName: optionalStringOrNull(form.preferredName),
+      nationality: optionalStringOrNull(form.nationality),
+      nationalId: optionalStringOrNull(form.nationalId),
+      passportNumber: optionalStringOrNull(form.passportNumber),
+      previousSchool: optionalStringOrNull(form.previousSchool),
+      phoneNumber: optionalStringOrNull(form.phoneNumber),
+      alternativePhoneNumber: optionalStringOrNull(form.alternativePhoneNumber),
+      email: optionalStringOrNull(form.email),
+      addressLine1: optionalStringOrNull(form.addressLine1) ?? form.address.trim(),
+      addressLine2: optionalStringOrNull(form.addressLine2),
+      city: optionalStringOrNull(form.city),
+      district: optionalStringOrNull(form.district),
+      postalCode: optionalStringOrNull(form.postalCode),
+      country: optionalStringOrNull(form.country),
+      guardianAltPhone: optionalStringOrNull(form.guardianAltPhone),
+      guardianEmail: optionalStringOrNull(form.guardianEmail),
+      guardianOccupation: optionalStringOrNull(form.guardianOccupation),
+      guardianAddress: optionalStringOrNull(form.guardianAddress),
+      emergencyContactName: optionalStringOrNull(form.emergencyContactName),
+      emergencyContactPhone: optionalStringOrNull(form.emergencyContactPhone),
+      emergencyContactRelationship: optionalStringOrNull(form.emergencyContactRelationship),
+      bloodGroup: optionalStringOrNull(form.bloodGroup),
+      allergies: optionalStringOrNull(form.allergies),
+      medicalConditions: optionalStringOrNull(form.medicalConditions),
+      disabilities: optionalStringOrNull(form.disabilities),
+      medication: optionalStringOrNull(form.medication),
+      hospitalName: optionalStringOrNull(form.hospitalName),
+      doctorName: optionalStringOrNull(form.doctorName),
+      doctorPhone: optionalStringOrNull(form.doctorPhone),
+      pickupPoint: optionalStringOrNull(form.pickupPoint),
+      routeName: optionalStringOrNull(form.routeName),
+      driverAssignment: optionalStringOrNull(form.driverAssignment),
+      religion: optionalStringOrNull(form.religion),
+      homeLanguage: optionalStringOrNull(form.homeLanguage),
+      residencyType: optionalStringOrNull(form.residencyType),
+      sponsorshipStatus: optionalStringOrNull(form.sponsorshipStatus),
+      feeCategory: optionalStringOrNull(form.feeCategory),
+      notes: optionalStringOrNull(form.notes),
     };
     if (import.meta.env.DEV) {
       console.debug('[Learner registration] request payload', payload);
@@ -422,7 +462,7 @@ export function StudentsPage() {
           </div>
 
           <details className="accordion-card">
-            <summary>Additional Personal Information</summary>
+            <summary>Optional learner details</summary>
             <div className="grid two-col-grid">
               <label>Middle name<input value={form.middleName} onChange={(e) => setField('middleName', e.target.value)} /></label>
               <label>Preferred name<input value={form.preferredName} onChange={(e) => setField('preferredName', e.target.value)} /></label>
@@ -434,7 +474,7 @@ export function StudentsPage() {
           </details>
 
           <details className="accordion-card">
-            <summary>Contact Information</summary>
+            <summary>Additional information (optional)</summary>
             <div className="grid two-col-grid">
               <label>Phone number<input value={form.phoneNumber} onChange={(e) => setField('phoneNumber', e.target.value)} /></label>
               <label>Alternative phone<input value={form.alternativePhoneNumber} onChange={(e) => setField('alternativePhoneNumber', e.target.value)} /></label>
@@ -449,7 +489,7 @@ export function StudentsPage() {
           </details>
 
           <details className="accordion-card">
-            <summary>Guardian and Emergency Details</summary>
+            <summary>Guardian and Emergency Details (optional)</summary>
             <div className="grid two-col-grid">
               <label>Guardian alt phone<input value={form.guardianAltPhone} onChange={(e) => setField('guardianAltPhone', e.target.value)} /></label>
               <label>Guardian email<input value={form.guardianEmail} onChange={(e) => setField('guardianEmail', e.target.value)} /></label>
@@ -463,7 +503,7 @@ export function StudentsPage() {
           </details>
 
           <details className="accordion-card">
-            <summary>Health Information</summary>
+            <summary>Health Information (optional)</summary>
             <div className="grid two-col-grid">
               <label>Blood group<input value={form.bloodGroup} onChange={(e) => setField('bloodGroup', e.target.value)} /></label>
               <label>Allergies<input value={form.allergies} onChange={(e) => setField('allergies', e.target.value)} /></label>
@@ -477,7 +517,7 @@ export function StudentsPage() {
           </details>
 
           <details className="accordion-card">
-            <summary>Transport Information</summary>
+            <summary>Transport Information (optional)</summary>
             <div className="grid two-col-grid">
               <label className="check-row">Uses transport
                 <input type="checkbox" checked={form.usesTransport} onChange={(e) => setField('usesTransport', e.target.checked)} />
@@ -489,7 +529,7 @@ export function StudentsPage() {
           </details>
 
           <details className="accordion-card">
-            <summary>Other School Information</summary>
+            <summary>Other School Information (optional)</summary>
             <div className="grid two-col-grid">
               <label>Religion<input value={form.religion} onChange={(e) => setField('religion', e.target.value)} /></label>
               <label>Home language<input value={form.homeLanguage} onChange={(e) => setField('homeLanguage', e.target.value)} /></label>
