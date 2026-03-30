@@ -39,7 +39,7 @@ public class StudentService {
                 request.admissionNumber(), request.classId());
         String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         validateAdmissionNumber(admissionNumber, null);
-        SchoolClass schoolClass = findClass(request.classId());
+        SchoolClass schoolClass = findClass(requireClassId(request.classId()));
         validateBusinessRules(request);
 
         Student student = new Student();
@@ -57,7 +57,7 @@ public class StudentService {
                 .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
         String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         validateAdmissionNumber(admissionNumber, id);
-        SchoolClass schoolClass = findClass(request.classId());
+        SchoolClass schoolClass = findClass(requireClassId(request.classId()));
         validateBusinessRules(request);
 
         copyFromRequest(student, request, schoolClass);
@@ -114,10 +114,6 @@ public class StudentService {
         student.setPreferredName(trimToNull(request.preferredName()));
         student.setGender(normalizeRequired(request.gender(), "Gender is required"));
         student.setDateOfBirth(request.dateOfBirth());
-        String requestedGrade = trimToNull(request.grade());
-        if (requestedGrade != null && !requestedGrade.equalsIgnoreCase(schoolClass.getName())) {
-            throw new AppException("Selected class does not match provided grade", HttpStatus.BAD_REQUEST);
-        }
         student.setGrade(schoolClass.getName());
         student.setEnrollmentDate(requireDate(request.enrollmentDate(), "Enrollment date is required"));
         student.setGuardianName(trimToNull(request.guardianName()));
@@ -175,6 +171,13 @@ public class StudentService {
             throw new AppException(message, HttpStatus.BAD_REQUEST);
         }
         return value;
+    }
+
+    private Long requireClassId(Long classId) {
+        if (classId == null) {
+            throw new AppException("Class is required", HttpStatus.BAD_REQUEST);
+        }
+        return classId;
     }
 
     private String validateOptionalEmail(String value, String message) {

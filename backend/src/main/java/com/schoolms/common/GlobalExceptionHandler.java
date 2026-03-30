@@ -1,5 +1,6 @@
 package com.schoolms.common;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import java.util.Map;
 import java.util.stream.Collectors;
 import jakarta.persistence.EntityNotFoundException;
@@ -54,6 +55,12 @@ public class GlobalExceptionHandler {
         } else if (normalized.contains("school_class_id")) {
             message = "Selected class does not exist";
             status = HttpStatus.BAD_REQUEST;
+        } else if (normalized.contains("grade")) {
+            message = "Selected class is missing a grade mapping";
+            status = HttpStatus.BAD_REQUEST;
+        } else if (normalized.contains("status")) {
+            message = "Status is required";
+            status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("not-null")) {
             if (normalized.contains("admission_number")) {
                 message = "Admission number is required";
@@ -67,6 +74,10 @@ public class GlobalExceptionHandler {
                 message = "Class is required";
             } else if (normalized.contains("enrollment_date")) {
                 message = "Enrollment date is required";
+            } else if (normalized.contains("grade")) {
+                message = "Grade is required";
+            } else if (normalized.contains("status")) {
+                message = "Status is required";
             } else {
                 message = "A required field is missing";
             }
@@ -83,8 +94,16 @@ public class GlobalExceptionHandler {
         String detail = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
         String normalized = detail == null ? "" : detail.toLowerCase();
         String message;
-        if (normalized.contains("localdate")) {
-            message = "Invalid date value. Use yyyy-MM-dd format";
+        Throwable cause = ex.getMostSpecificCause();
+        if (cause instanceof InvalidFormatException invalidFormatException && !invalidFormatException.getPath().isEmpty()) {
+            String field = invalidFormatException.getPath().get(0).getFieldName();
+            if (normalized.contains("localdate")) {
+                message = field + " must be in yyyy-MM-dd format";
+            } else {
+                message = field + " has an invalid value";
+            }
+        } else if (normalized.contains("localdate")) {
+            message = "Date value must be in yyyy-MM-dd format";
         } else if (normalized.contains("studentstatus")) {
             message = "Invalid status value";
         } else if (normalized.contains("gender")) {
