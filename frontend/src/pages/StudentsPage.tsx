@@ -45,10 +45,21 @@ const residencyTypes = ['DAY_SCHOLAR', 'BOARDING', 'HOSTEL'];
 const sponsorshipStatuses = ['SELF', 'SPONSORED', 'PARTIAL'];
 const feeCategories = ['REGULAR', 'SCHOLARSHIP', 'SUBSIDIZED'];
 
-const formatLocalDateOrNull = (value: string) => {
+const toIsoDate = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const parts = trimmed.split('/');
+  if (parts.length === 3) {
+    const [dd, mm, yyyy] = parts;
+    if (/^\d{1,2}$/.test(dd) && /^\d{1,2}$/.test(mm) && /^\d{4}$/.test(yyyy)) {
+      return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    }
+  }
+
+  return null;
 };
 
 const blankForm = {
@@ -290,7 +301,7 @@ export function StudentsPage() {
       admissionNumber: form.admissionNumber.trim(),
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
-      dateOfBirth: formatLocalDateOrNull(form.dateOfBirth),
+      dateOfBirth: toIsoDate(form.dateOfBirth),
       guardianName: optionalStringOrNull(form.guardianName),
       guardianRelationship: optionalStringOrNull(form.guardianRelationship),
       guardianPhone: optionalStringOrNull(form.guardianPhone),
@@ -298,7 +309,7 @@ export function StudentsPage() {
       status: form.status || 'ACTIVE',
       grade: selectedClass?.name ?? optionalStringOrNull(form.grade),
       classId: Number(form.classId),
-      enrollmentDate: formatLocalDateOrNull(form.enrollmentDate),
+      enrollmentDate: toIsoDate(form.enrollmentDate),
       middleName: optionalStringOrNull(form.middleName),
       preferredName: optionalStringOrNull(form.preferredName),
       nationality: optionalStringOrNull(form.nationality),
