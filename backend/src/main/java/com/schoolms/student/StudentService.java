@@ -2,7 +2,9 @@ package com.schoolms.student;
 
 import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.classmanagement.SchoolClassStatus;
 import com.schoolms.common.AppException;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,8 +31,10 @@ public class StudentService {
 
     @Transactional
     public StudentDtos.StudentResponse create(StudentDtos.StudentRequest request) {
-        validateAdmissionNumber(request.admissionNumber(), null);
+        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
+        validateAdmissionNumber(admissionNumber, null);
         SchoolClass schoolClass = findClass(request.classId());
+        validateBusinessRules(request, schoolClass);
 
         Student student = new Student();
         copyFromRequest(student, request, schoolClass);
@@ -41,8 +45,10 @@ public class StudentService {
     public StudentDtos.StudentResponse update(Long id, StudentDtos.StudentRequest request) {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
-        validateAdmissionNumber(request.admissionNumber(), id);
+        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
+        validateAdmissionNumber(admissionNumber, id);
         SchoolClass schoolClass = findClass(request.classId());
+        validateBusinessRules(request, schoolClass);
 
         copyFromRequest(student, request, schoolClass);
         return map(studentRepository.save(student));
@@ -66,23 +72,45 @@ public class StudentService {
     }
 
     private SchoolClass findClass(Long classId) {
-        return classRepository.findById(classId)
+        SchoolClass schoolClass = classRepository.findById(classId)
                 .orElseThrow(() -> new AppException("Class not found", HttpStatus.NOT_FOUND));
+        if (schoolClass.getStatus() == SchoolClassStatus.INACTIVE) {
+            throw new AppException("Class is inactive and cannot accept learners", HttpStatus.BAD_REQUEST);
+        }
+        return schoolClass;
+    }
+
+    private void validateBusinessRules(StudentDtos.StudentRequest request, SchoolClass schoolClass) {
+        LocalDate today = LocalDate.now();
+        if (request.dateOfBirth() != null && !request.dateOfBirth().isBefore(today)) {
+            throw new AppException("Date of birth must be in the past", HttpStatus.BAD_REQUEST);
+        }
+        if (request.enrollmentDate() != null && request.enrollmentDate().isAfter(today)) {
+            throw new AppException("Enrollment date cannot be in the future", HttpStatus.BAD_REQUEST);
+        }
+        if (request.dateOfBirth() != null && request.enrollmentDate() != null
+                && request.enrollmentDate().isBefore(request.dateOfBirth())) {
+            throw new AppException("Enrollment date cannot be before date of birth", HttpStatus.BAD_REQUEST);
+        }
+        String normalizedGrade = normalizeRequired(request.grade(), "Grade is required");
+        if (!normalizedGrade.equalsIgnoreCase(schoolClass.getName())) {
+            throw new AppException("Selected class does not belong to the specified grade", HttpStatus.BAD_REQUEST);
+        }
     }
 
     private void copyFromRequest(Student student, StudentDtos.StudentRequest request, SchoolClass schoolClass) {
-        student.setAdmissionNumber(request.admissionNumber().trim());
-        student.setFirstName(request.firstName().trim());
+        student.setAdmissionNumber(normalizeRequired(request.admissionNumber(), "Admission number is required"));
+        student.setFirstName(normalizeRequired(request.firstName(), "First name is required"));
         student.setMiddleName(trimToNull(request.middleName()));
-        student.setLastName(request.lastName().trim());
+        student.setLastName(normalizeRequired(request.lastName(), "Last name is required"));
         student.setPreferredName(trimToNull(request.preferredName()));
-        student.setGender(request.gender().trim());
+        student.setGender(normalizeRequired(request.gender(), "Gender is required"));
         student.setDateOfBirth(request.dateOfBirth());
-        student.setGrade(request.grade().trim());
+        student.setGrade(normalizeRequired(request.grade(), "Grade is required"));
         student.setEnrollmentDate(request.enrollmentDate());
-        student.setGuardianName(request.guardianName().trim());
-        student.setGuardianRelationship(request.guardianRelationship().trim());
-        student.setGuardianPhone(request.guardianPhone().trim());
+        student.setGuardianName(normalizeRequired(request.guardianName(), "Guardian name is required"));
+        student.setGuardianRelationship(normalizeRequired(request.guardianRelationship(), "Guardian relationship is required"));
+        student.setGuardianPhone(normalizeRequired(request.guardianPhone(), "Guardian phone is required"));
 
         String normalizedAddress = trimToNull(request.address());
         student.setAddress(normalizedAddress);
@@ -135,6 +163,14 @@ public class StudentService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeRequired(String value, String message) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            throw new AppException(message, HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
     }
 
     private StudentDtos.StudentResponse map(Student s) {

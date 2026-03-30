@@ -3,9 +3,13 @@ package com.schoolms.common;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,8 +23,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = ex.getBindingResult().getAllErrors().stream()
-                .collect(Collectors.toMap(e -> ((FieldError) e).getField(), e -> e.getDefaultMessage(), (a, b) -> b));
+        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
+        return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed", errors));
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleBind(BindException ex) {
+        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
         return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed", errors));
     }
 
@@ -31,6 +42,40 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(409).body(new ApiResponse<>(false, "Duplicate or invalid data", null));
+        String detail = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String normalized = detail == null ? "" : detail.toLowerCase();
+        String message;
+        if (normalized.contains("admission_number")) {
+            message = "Admission number already exists";
+        } else if (normalized.contains("school_class_id")) {
+            message = "Invalid class reference";
+        } else if (normalized.contains("not-null")) {
+            message = "Missing required fields";
+        } else {
+            message = "Data integrity violation";
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiResponse<>(false, message, null));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        String detail = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String normalized = detail == null ? "" : detail.toLowerCase();
+        String message;
+        if (normalized.contains("localdate")) {
+            message = "Invalid date value. Use yyyy-MM-dd format";
+        } else if (normalized.contains("studentstatus")) {
+            message = "Invalid status value";
+        } else if (normalized.contains("json parse error")) {
+            message = "Malformed request payload";
+        } else {
+            message = "Request body is invalid";
+        }
+        return ResponseEntity.badRequest().body(new ApiResponse<>(false, message, null));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed for parameter: " + ex.getName(), null));
     }
 }

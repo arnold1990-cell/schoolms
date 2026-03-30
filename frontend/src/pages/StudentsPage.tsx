@@ -55,7 +55,7 @@ const blankForm = {
   classId: '',
   enrollmentDate: '',
   guardianName: '',
-  guardianRelationship: 'PARENT',
+  guardianRelationship: 'MOTHER',
   guardianPhone: '',
   address: '',
   status: 'ACTIVE' as StudentStatus,
@@ -210,6 +210,41 @@ export function StudentsPage() {
       next.email = 'Email must be valid.';
     }
 
+    if (form.guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.guardianEmail)) {
+      next.guardianEmail = 'Guardian email must be valid.';
+    }
+
+    const selectedClass = classes.find((item) => item.id === Number(form.classId));
+    if (form.classId && !selectedClass) {
+      next.classId = 'Selected class is invalid.';
+    }
+    if (form.grade && selectedClass && selectedClass.name !== form.grade) {
+      next.classId = 'Selected class does not belong to the chosen grade.';
+    }
+
+    if (form.dateOfBirth) {
+      const dob = new Date(`${form.dateOfBirth}T00:00:00`);
+      const now = new Date();
+      if (Number.isNaN(dob.getTime()) || dob >= now) {
+        next.dateOfBirth = 'Date of birth must be in the past.';
+      }
+    }
+    if (form.enrollmentDate) {
+      const enrollment = new Date(`${form.enrollmentDate}T00:00:00`);
+      const today = new Date();
+      const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (Number.isNaN(enrollment.getTime())) {
+        next.enrollmentDate = 'Enrollment date is invalid.';
+      } else if (enrollment > todayOnly) {
+        next.enrollmentDate = 'Enrollment date cannot be in the future.';
+      } else if (form.dateOfBirth) {
+        const dob = new Date(`${form.dateOfBirth}T00:00:00`);
+        if (!Number.isNaN(dob.getTime()) && enrollment < dob) {
+          next.enrollmentDate = 'Enrollment date cannot be before date of birth.';
+        }
+      }
+    }
+
     setFormErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -252,11 +287,22 @@ export function StudentsPage() {
 
     const payload = {
       ...form,
+      admissionNumber: form.admissionNumber.trim(),
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      guardianName: form.guardianName.trim(),
+      guardianRelationship: form.guardianRelationship.trim(),
+      guardianPhone: form.guardianPhone.trim(),
+      address: form.address.trim(),
+      grade: form.grade.trim(),
       classId: Number(form.classId),
       addressLine1: form.addressLine1 || form.address,
       email: form.email || null,
       guardianEmail: form.guardianEmail || null,
     };
+    if (import.meta.env.DEV) {
+      console.debug('[Learner registration] request payload', payload);
+    }
 
     try {
       setSaving(true);
@@ -414,6 +460,7 @@ export function StudentsPage() {
             <div className="grid two-col-grid">
               <label>Guardian alt phone<input value={form.guardianAltPhone} onChange={(e) => setField('guardianAltPhone', e.target.value)} /></label>
               <label>Guardian email<input value={form.guardianEmail} onChange={(e) => setField('guardianEmail', e.target.value)} /></label>
+              {formErrors.guardianEmail ? <span className="field-error">{formErrors.guardianEmail}</span> : null}
               <label>Guardian occupation<input value={form.guardianOccupation} onChange={(e) => setField('guardianOccupation', e.target.value)} /></label>
               <label>Guardian address<input value={form.guardianAddress} onChange={(e) => setField('guardianAddress', e.target.value)} /></label>
               <label>Emergency contact name<input value={form.emergencyContactName} onChange={(e) => setField('emergencyContactName', e.target.value)} /></label>
