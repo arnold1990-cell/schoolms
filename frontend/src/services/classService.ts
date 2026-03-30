@@ -35,11 +35,9 @@ export interface ClassRoster {
 }
 
 export interface ClassUpsertPayload {
-  name: string;
-  code?: string | null;
-  level?: string | null;
-  academicYear?: string | null;
-  stream?: string | null;
+  gradeLevel: string;
+  streamSection: string;
+  academicYear: string;
   capacity?: number | null;
   status?: ClassStatus;
 }

@@ -65,8 +65,8 @@ class SchoolClassIntegrationTest {
         adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
         teacherToken = loginAndGetToken("teacher@schoolms.com", "Teacher123!");
 
-        classAId = createClass("Grade 8", "G8-A");
-        classBId = createClass("Grade 9", "G9-A");
+        classAId = createClass("8", "A", "2026", 40);
+        classBId = createClass("9", "A", "2026", 45);
         teacherId = createTeacher("home.teacher@schoolms.com", "T-900");
         learnerId = createLearner("ADM-900", classAId);
         subjectId = createSubject("SCI900", "Science");
@@ -74,20 +74,59 @@ class SchoolClassIntegrationTest {
 
     @Test
     void adminCanCreateUpdateAndDeleteClass() throws Exception {
-        Long classId = createClass("Grade 10", "G10-A");
+        Long classId = createClass("10", "A", "2026", 30);
 
         mockMvc.perform(put("/api/classes/{id}", classId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Grade 10 Updated","code":"G10-U","stream":"B","status":"INACTIVE"}
+                                {"gradeLevel":"10","streamSection":"b","academicYear":"2027","capacity":35,"status":"INACTIVE"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("Grade 10 Updated"));
+                .andExpect(jsonPath("$.data.name").value("Grade 10B"))
+                .andExpect(jsonPath("$.data.stream").value("B"))
+                .andExpect(jsonPath("$.data.academicYear").value("2027"));
 
         mockMvc.perform(delete("/api/classes/{id}", classId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void preventsDuplicateClassByGradeStreamAndYear() throws Exception {
+        mockMvc.perform(post("/api/classes")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"gradeLevel":"8","streamSection":"A","academicYear":"2026","status":"ACTIVE"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Class already exists for Grade 8, Stream A, Academic Year 2026"));
+    }
+
+    @Test
+    void createClassNormalizesStreamAndGeneratesNameAndAllowsOptionalCapacity() throws Exception {
+        mockMvc.perform(post("/api/classes")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"gradeLevel":" 1 ","streamSection":" a ","academicYear":"2028","status":"ACTIVE"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Grade 1A"))
+                .andExpect(jsonPath("$.data.stream").value("A"))
+                .andExpect(jsonPath("$.data.capacity").isEmpty());
+    }
+
+    @Test
+    void rejectsInvalidOrMissingRequiredFields() throws Exception {
+        mockMvc.perform(post("/api/classes")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"gradeLevel":"","streamSection":"","academicYear":"20A6","capacity":0,"status":"ACTIVE"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -160,7 +199,7 @@ class SchoolClassIntegrationTest {
         mockMvc.perform(post("/api/classes")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{" + "\"name\":\"Grade 11\"}"))
+                        .content("{" + "\"gradeLevel\":\"11\",\"streamSection\":\"A\",\"academicYear\":\"2026\"}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(put("/api/classes/{id}/teacher", classAId)
@@ -178,13 +217,14 @@ class SchoolClassIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Cannot delete class because learners are still assigned"));
     }
 
-    private Long createClass(String name, String code) throws Exception {
+    private Long createClass(String level, String stream, String year, Integer capacity) throws Exception {
+        String capacityJson = capacity == null ? "null" : capacity.toString();
         MvcResult result = mockMvc.perform(post("/api/classes")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s","code":"%s","stream":"A","status":"ACTIVE"}
-                                """.formatted(name, code)))
+                                {"gradeLevel":"%s","streamSection":"%s","academicYear":"%s","capacity":%s,"status":"ACTIVE"}
+                                """.formatted(level, stream, year, capacityJson)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
@@ -224,7 +264,7 @@ class SchoolClassIntegrationTest {
         student.setLastName("One");
         student.setGender("FEMALE");
         student.setDateOfBirth(LocalDate.of(2012, 1, 2));
-        student.setGrade("Grade");
+        student.setGrade(classRepository.findById(schoolClassId).orElseThrow().getLevel());
         student.setEnrollmentDate(LocalDate.of(2025, 1, 1));
         student.setGuardianName("Guardian");
         student.setGuardianRelationship("MOTHER");
