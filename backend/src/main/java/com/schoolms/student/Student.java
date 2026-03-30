@@ -28,7 +28,6 @@ public class Student extends BaseEntity {
     @Column(nullable = false)
     private String gender;
 
-    @Column(nullable = false)
     private LocalDate dateOfBirth;
 
     @Column(nullable = false)
@@ -37,16 +36,13 @@ public class Student extends BaseEntity {
     @Column(nullable = false)
     private LocalDate enrollmentDate;
 
-    @Column(nullable = false)
     private String guardianName;
 
-    @Column(nullable = false)
     private String guardianRelationship;
 
-    @Column(nullable = false)
     private String guardianPhone;
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 1000)
     private String address;
 
     @Enumerated(EnumType.STRING)
