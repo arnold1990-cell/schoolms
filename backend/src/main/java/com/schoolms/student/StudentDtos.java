@@ -18,7 +18,7 @@ public class StudentDtos {
             @Pattern(regexp = "MALE|FEMALE|OTHER", message = "Gender must be one of: MALE, FEMALE, OTHER") String gender,
             @NotNull(message = "Date of birth is required")
             @Past(message = "Date of birth must be in the past") LocalDate dateOfBirth,
-            @NotBlank(message = "Grade is required") String grade,
+            String grade,
             @NotNull(message = "Class is required") Long classId,
             @NotNull(message = "Enrollment date is required") LocalDate enrollmentDate,
             @NotBlank(message = "Guardian name is required") String guardianName,

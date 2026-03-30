@@ -2,6 +2,8 @@ package com.schoolms.common;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,16 +47,21 @@ public class GlobalExceptionHandler {
         String detail = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
         String normalized = detail == null ? "" : detail.toLowerCase();
         String message;
+        HttpStatus status;
         if (normalized.contains("admission_number")) {
             message = "Admission number already exists";
+            status = HttpStatus.CONFLICT;
         } else if (normalized.contains("school_class_id")) {
-            message = "Invalid class reference";
+            message = "Selected class does not exist";
+            status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("not-null")) {
-            message = "Missing required fields";
+            message = "A required field is missing";
+            status = HttpStatus.BAD_REQUEST;
         } else {
             message = "Data integrity violation";
+            status = HttpStatus.CONFLICT;
         }
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiResponse<>(false, message, null));
+        return ResponseEntity.status(status).body(new ApiResponse<>(false, message, null));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -66,6 +73,12 @@ public class GlobalExceptionHandler {
             message = "Invalid date value. Use yyyy-MM-dd format";
         } else if (normalized.contains("studentstatus")) {
             message = "Invalid status value";
+        } else if (normalized.contains("gender")) {
+            message = "Invalid gender value. Allowed values: MALE, FEMALE, OTHER";
+        } else if (normalized.contains("guardianrelationship")) {
+            message = "Invalid guardian relationship value";
+        } else if (normalized.contains("required request body is missing")) {
+            message = "Request body is required";
         } else if (normalized.contains("json parse error")) {
             message = "Malformed request payload";
         } else {
@@ -77,5 +90,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed for parameter: " + ex.getName(), null));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleConstraintViolation(ConstraintViolationException ex) {
+        String message = ex.getConstraintViolations().stream()
+                .findFirst()
+                .map(item -> item.getMessage())
+                .orElse("Validation failed");
+        return ResponseEntity.badRequest().body(new ApiResponse<>(false, message, null));
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleEntityNotFound(EntityNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, ex.getMessage(), null));
     }
 }
