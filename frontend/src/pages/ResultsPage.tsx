@@ -9,7 +9,6 @@ import { useAuth } from '../hooks/useAuth';
 interface SchoolClass {
   id: number;
   name: string;
-  stream?: string;
 }
 
 function message(error: unknown) {
@@ -101,7 +100,7 @@ export function ResultsPage() {
           >
             {classes.map((schoolClass) => (
               <option key={schoolClass.id} value={schoolClass.id}>
-                {schoolClass.name} {schoolClass.stream ? `(${schoolClass.stream})` : ''}
+                {schoolClass.name}
               </option>
             ))}
           </select>

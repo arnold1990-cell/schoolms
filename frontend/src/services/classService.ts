@@ -42,8 +42,10 @@ export interface ClassUpsertPayload {
   status?: ClassStatus;
 }
 
-export async function listClasses() {
-  const response = await api.get('/api/classes');
+export async function listClasses(options?: { includeInactive?: boolean }) {
+  const response = await api.get('/api/classes', {
+    params: options?.includeInactive ? { includeInactive: true } : undefined,
+  });
   return unwrapList<SchoolClassSummary>(response.data);
 }
 

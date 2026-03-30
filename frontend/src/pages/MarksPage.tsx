@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, unwrapList, unwrapItem } from '../utils/apiHelpers';
 
-interface ClassOption { id: number; name: string; code?: string; }
+interface ClassOption { id: number; name: string; }
 interface SubjectOption { id: number; name: string; code?: string; }
 type TermOption = 'TERM_1' | 'TERM_2' | 'TERM_3';
 interface MarksSetupData {
@@ -177,7 +177,7 @@ export function MarksPage() {
             <label>Class
               <select value={selectedClassId} onChange={(event) => setSelectedClassId(event.target.value ? Number(event.target.value) : '')}>
                 <option value="">Select class</option>
-                {setup.classes.map((item) => <option key={item.id} value={item.id}>{item.name}{item.code ? ` (${item.code})` : ''}</option>)}
+                {setup.classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
 

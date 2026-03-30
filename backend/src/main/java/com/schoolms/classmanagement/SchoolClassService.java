@@ -26,8 +26,11 @@ public class SchoolClassService {
     private final MarkRepository markRepository;
 
     @Transactional(readOnly = true)
-    public List<SchoolClassDtos.SchoolClassSummaryResponse> list() {
-        return classRepository.findAll().stream()
+    public List<SchoolClassDtos.SchoolClassSummaryResponse> list(boolean includeInactive) {
+        List<SchoolClass> classes = includeInactive
+                ? classRepository.findAll()
+                : classRepository.findByStatus(SchoolClassStatus.ACTIVE);
+        return classes.stream()
                 .sorted(Comparator.comparing(SchoolClass::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toSummary)
                 .toList();

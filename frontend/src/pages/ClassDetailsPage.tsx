@@ -162,7 +162,7 @@ export function ClassDetailsPage() {
 
   return (
     <div className="page">
-      <PageHeader title={`Class Roster: ${data.name}`} subtitle={`${data.code || '-'} • ${data.level || '-'} • ${data.academicYear || '-'}`} />
+      <PageHeader title={`Class Roster: ${data.name}`} subtitle={`Grade ${data.level || '-'} • Stream ${data.stream || '-'} • ${data.academicYear || '-'} • ${data.status}`} />
       <Link to="/classes"><button type="button">Back to Classes</button></Link>
       {feedback ? <p className="success-text">{feedback}</p> : null}
       {error ? <p className="error-text">{error}</p> : null}

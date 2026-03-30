@@ -2,6 +2,7 @@ package com.schoolms.marks;
 
 import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.classmanagement.SchoolClassStatus;
 import com.schoolms.common.AppException;
 import com.schoolms.exam.Exam;
 import com.schoolms.exam.ExamRepository;
@@ -57,6 +58,7 @@ public class MarkService {
         }
 
         List<SchoolClass> classes = classRepository.findAll().stream()
+                .filter(schoolClass -> schoolClass.getStatus() == SchoolClassStatus.ACTIVE)
                 .filter(schoolClass -> canAccessClass(user, teacher, schoolClass))
                 .sorted(Comparator.comparing(SchoolClass::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -284,6 +286,9 @@ public class MarkService {
             return true;
         }
         if (teacher == null || schoolClass == null) {
+            return false;
+        }
+        if (schoolClass.getStatus() != SchoolClassStatus.ACTIVE) {
             return false;
         }
         boolean explicitlyAssignedToClass = teacher.getAssignedClasses().stream()

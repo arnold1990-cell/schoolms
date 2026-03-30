@@ -4,6 +4,7 @@ import com.schoolms.academicsession.AcademicSession;
 import com.schoolms.academicsession.AcademicSessionRepository;
 import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.classmanagement.SchoolClassStatus;
 import com.schoolms.student.Student;
 import com.schoolms.student.StudentRepository;
 import com.schoolms.student.StudentStatus;
@@ -21,6 +22,7 @@ import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
 import java.time.LocalDate;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,15 +89,8 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        SchoolClass classOne = new SchoolClass();
-        classOne.setName("Grade 7");
-        classOne.setStream("A");
-        classOne = classRepository.save(classOne);
-
-        SchoolClass classTwo = new SchoolClass();
-        classTwo.setName("Grade 8");
-        classTwo.setStream("B");
-        classTwo = classRepository.save(classTwo);
+        SchoolClass classOne = createClass("7", "A", "2026", 45);
+        SchoolClass classTwo = createClass("8", "B", "2026", 45);
 
         Teacher linkedTeacher = ensureTeacherProfileForDemoAccount();
         Teacher t1 = createTeacher("Alice", "Johnson", "TCH-1001", "alice.johnson@schoolms.com", "555-0101");
@@ -225,5 +220,18 @@ public class DataSeeder implements CommandLineRunner {
         student.setUsesTransport(false);
         student.setSchoolClass(schoolClass);
         studentRepository.save(student);
+    }
+
+    private SchoolClass createClass(String level, String stream, String academicYear, Integer capacity) {
+        SchoolClass schoolClass = new SchoolClass();
+        String normalizedStream = stream == null ? null : stream.trim().toUpperCase(Locale.ROOT);
+        schoolClass.setLevel(level);
+        schoolClass.setStream(normalizedStream);
+        schoolClass.setAcademicYear(academicYear);
+        schoolClass.setName("Grade " + level + normalizedStream);
+        schoolClass.setCode(("GRADE-" + level + "-" + normalizedStream + "-" + academicYear).replaceAll("\\s+", "-").toUpperCase(Locale.ROOT));
+        schoolClass.setCapacity(capacity);
+        schoolClass.setStatus(SchoolClassStatus.ACTIVE);
+        return classRepository.save(schoolClass);
     }
 }

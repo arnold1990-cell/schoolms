@@ -31,6 +31,7 @@ interface Student {
 interface SchoolClass {
   id: number;
   name: string;
+  level?: string;
   stream?: string;
 }
 
@@ -127,11 +128,11 @@ export function StudentsPage() {
 
   const classOptions = useMemo(() => classes.map((item) => ({
     ...item,
-    label: `${item.name}${item.stream ? ` ${item.stream}` : ''}`,
+    label: item.name,
   })), [classes]);
 
   const grades = useMemo(
-    () => Array.from(new Set(classes.map((item) => item.name))).sort((a, b) => a.localeCompare(b)),
+    () => Array.from(new Set(classes.map((item) => item.level).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
     [classes]
   );
 
@@ -139,7 +140,7 @@ export function StudentsPage() {
     if (!form.grade) {
       return classOptions;
     }
-    return classOptions.filter((item) => item.name === form.grade);
+    return classOptions.filter((item) => item.level === form.grade);
   }, [classOptions, form.grade]);
 
   const loadClasses = useCallback(async () => {
@@ -149,7 +150,7 @@ export function StudentsPage() {
     if (rowsData.length > 0) {
       setForm((prev) => ({
         ...prev,
-        grade: prev.grade || rowsData[0].name,
+        grade: prev.grade || rowsData[0].level || '',
         classId: prev.classId || String(rowsData[0].id),
       }));
     }
@@ -218,7 +219,7 @@ export function StudentsPage() {
     if (form.classId && !selectedClass) {
       next.classId = 'Selected class is invalid.';
     }
-    if (form.grade && selectedClass && selectedClass.name !== form.grade) {
+    if (form.grade && selectedClass && selectedClass.level !== form.grade) {
       next.classId = 'Selected class does not belong to the chosen grade.';
     }
 
@@ -254,7 +255,7 @@ export function StudentsPage() {
     const defaultClass = classes[0];
     setForm({
       ...blankForm,
-      grade: defaultClass?.name || '',
+      grade: defaultClass?.level || '',
       classId: defaultClass ? String(defaultClass.id) : '',
     });
     setFormErrors({});

@@ -4,6 +4,8 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> {
+    List<SchoolClass> findByStatus(SchoolClassStatus status);
+
     boolean existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCase(String level, String stream, String academicYear);
 
     boolean existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCaseAndIdNot(
