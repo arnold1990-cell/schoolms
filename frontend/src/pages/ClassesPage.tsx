@@ -48,7 +48,7 @@ export function ClassesPage() {
     setLoading(true);
     setError('');
     try {
-      setRows(await listClasses());
+      setRows(await listClasses({ includeInactive: true }));
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to load classes.'));
     } finally {
@@ -65,7 +65,7 @@ export function ClassesPage() {
     const term = keyword.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((item) =>
-      [item.name, item.code, item.level, item.academicYear, item.stream, item.classTeacherName]
+      [item.name, item.level, item.academicYear, item.stream, item.classTeacherName, item.status]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term))
     );
@@ -180,7 +180,7 @@ export function ClassesPage() {
       />
       <div className="card">
         <label>Search
-          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search by class, code, year, stream" />
+          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search by grade, stream, year, status" />
         </label>
       </div>
       {feedback ? <p className="success-text">{feedback}</p> : null}
@@ -191,13 +191,13 @@ export function ClassesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th><th>Code</th><th>Level</th><th>Year</th><th>Stream</th><th>Teacher</th><th>Learners</th><th>Subjects</th><th>Status</th><th>Actions</th>
+              <th>Class</th><th>Grade</th><th>Stream</th><th>Year</th><th>Teacher</th><th>Learners</th><th>Subjects</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.map((item) => (
               <tr key={item.id}>
-                <td>{item.name}</td><td>{item.code || '-'}</td><td>{item.level || '-'}</td><td>{item.academicYear || '-'}</td><td>{item.stream || '-'}</td>
+                <td>{item.name}</td><td>{item.level || '-'}</td><td>{item.stream || '-'}</td><td>{item.academicYear || '-'}</td>
                 <td>{item.classTeacherName || '-'}</td><td>{item.learnerCount}</td><td>{item.subjectCount}</td><td>{item.status}</td>
                 <td>
                   <div className="action-buttons">

@@ -1,7 +1,10 @@
 package com.schoolms.exam;
 
 import com.schoolms.academicsession.AcademicSessionRepository;
+import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
+import com.schoolms.classmanagement.SchoolClassStatus;
+import com.schoolms.common.AppException;
 import com.schoolms.common.ApiResponse;
 import com.schoolms.subject.SubjectRepository;
 import jakarta.validation.Valid;
@@ -11,6 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,7 +49,7 @@ public class ExamController {
     public ApiResponse<Exam> create(@Valid @RequestBody ExamRequest request) {
         Exam e = new Exam();
         e.setTitle(request.title());
-        e.setSchoolClass(classRepository.findById(request.classId()).orElseThrow());
+        e.setSchoolClass(getActiveClass(request.classId()));
         e.setSubject(subjectRepository.findById(request.subjectId()).orElseThrow());
         e.setTerm(request.term());
         e.setAcademicSession(sessionRepository.findById(request.sessionId()).orElseThrow());
@@ -60,7 +64,7 @@ public class ExamController {
     public ApiResponse<Exam> update(@PathVariable Long id, @Valid @RequestBody ExamRequest request) {
         Exam e = examRepository.findById(id).orElseThrow();
         e.setTitle(request.title());
-        e.setSchoolClass(classRepository.findById(request.classId()).orElseThrow());
+        e.setSchoolClass(getActiveClass(request.classId()));
         e.setSubject(subjectRepository.findById(request.subjectId()).orElseThrow());
         e.setTerm(request.term());
         e.setAcademicSession(sessionRepository.findById(request.sessionId()).orElseThrow());
@@ -69,5 +73,14 @@ public class ExamController {
         e.setTotalMarks(request.totalMarks());
         e.setStatus(request.status() == null ? ExamStatus.DRAFT : request.status());
         return ApiResponse.ok("Exam updated", examRepository.save(e));
+    }
+
+    private SchoolClass getActiveClass(Long classId) {
+        SchoolClass schoolClass = classRepository.findById(classId)
+                .orElseThrow(() -> new AppException("Class not found", HttpStatus.NOT_FOUND));
+        if (schoolClass.getStatus() == SchoolClassStatus.INACTIVE) {
+            throw new AppException("Inactive classes cannot be used for exams", HttpStatus.BAD_REQUEST);
+        }
+        return schoolClass;
     }
 }

@@ -31,6 +31,7 @@ interface Student {
 interface SchoolClass {
   id: number;
   name: string;
+  level?: string;
   stream?: string;
   status?: 'ACTIVE' | 'INACTIVE';
 }
@@ -137,7 +138,7 @@ export function StudentsPage() {
   );
 
   const grades = useMemo(
-    () => Array.from(new Set(classes.map((item) => item.name))).sort((a, b) => a.localeCompare(b)),
+    () => Array.from(new Set(classes.map((item) => item.level).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
     [classes]
   );
 
@@ -148,7 +149,7 @@ export function StudentsPage() {
     if (rowsData.length > 0) {
       setForm((prev) => ({
         ...prev,
-        grade: prev.grade || rowsData[0].name,
+        grade: prev.grade || rowsData[0].level || '',
         classId: prev.classId || String(rowsData[0].id),
       }));
     }
@@ -248,7 +249,7 @@ export function StudentsPage() {
     const defaultClass = classes[0];
     setForm({
       ...blankForm,
-      grade: defaultClass?.name || '',
+      grade: defaultClass?.level || '',
       classId: defaultClass ? String(defaultClass.id) : '',
     });
     setFormErrors({});

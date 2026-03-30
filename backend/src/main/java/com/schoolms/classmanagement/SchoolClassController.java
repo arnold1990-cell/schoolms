@@ -15,8 +15,10 @@ public class SchoolClassController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public ApiResponse<List<SchoolClassDtos.SchoolClassSummaryResponse>> list() {
-        return ApiResponse.ok("Classes", service.list());
+    public ApiResponse<List<SchoolClassDtos.SchoolClassSummaryResponse>> list(
+            @RequestParam(defaultValue = "false") boolean includeInactive
+    ) {
+        return ApiResponse.ok("Classes", service.list(includeInactive));
     }
 
     @GetMapping("/{id}")
