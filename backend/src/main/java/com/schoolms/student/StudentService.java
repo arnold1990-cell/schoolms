@@ -93,7 +93,8 @@ public class StudentService {
             throw new AppException("Enrollment date cannot be before date of birth", HttpStatus.BAD_REQUEST);
         }
         String normalizedGrade = normalizeRequired(request.grade(), "Grade is required");
-        if (!normalizedGrade.equalsIgnoreCase(schoolClass.getName())) {
+        String classLevel = schoolClass.getLevel() == null ? "" : schoolClass.getLevel().trim();
+        if (!normalizedGrade.equalsIgnoreCase(classLevel)) {
             throw new AppException("Selected class does not belong to the specified grade", HttpStatus.BAD_REQUEST);
         }
     }

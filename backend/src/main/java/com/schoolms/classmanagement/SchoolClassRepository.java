@@ -4,9 +4,14 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> {
-    boolean existsByNameIgnoreCase(String name);
+    boolean existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCase(String level, String stream, String academicYear);
 
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    boolean existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCaseAndIdNot(
+            String level,
+            String stream,
+            String academicYear,
+            Long id
+    );
 
     boolean existsByCodeIgnoreCase(String code);
 

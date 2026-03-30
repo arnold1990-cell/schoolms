@@ -6,12 +6,10 @@ import jakarta.validation.constraints.NotBlank;
 public class SchoolClassDtos {
 
     public record SchoolClassUpsertRequest(
-            @NotBlank(message = "Class name is required") String name,
-            String code,
-            String level,
-            String academicYear,
-            String stream,
-            @Min(value = 1, message = "Capacity must be at least 1") Integer capacity,
+            @NotBlank(message = "Grade / Level is required") String gradeLevel,
+            @NotBlank(message = "Stream / Section is required") String streamSection,
+            @NotBlank(message = "Academic Year is required") String academicYear,
+            @Min(value = 1, message = "Capacity must be a positive number") Integer capacity,
             SchoolClassStatus status
     ) {
     }

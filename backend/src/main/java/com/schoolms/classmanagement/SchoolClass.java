@@ -12,13 +12,19 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "school_class")
+@Table(
+        name = "school_class",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_school_class_level_stream_year",
+                columnNames = {"level", "stream", "academic_year"}
+        )
+)
 public class SchoolClass extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String name;
 
     @Column(unique = true)

@@ -10,6 +10,7 @@ import com.schoolms.teacher.Teacher;
 import com.schoolms.teacher.TeacherRepository;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -134,24 +135,33 @@ public class SchoolClassService {
     }
 
     private void apply(SchoolClass schoolClass, SchoolClassDtos.SchoolClassUpsertRequest request, Long id) {
-        String name = normalizeRequired(request.name(), "Class name is required");
-        if (id == null ? classRepository.existsByNameIgnoreCase(name) : classRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
-            throw new AppException("Class name already exists", HttpStatus.CONFLICT);
+        String level = normalizeRequired(request.gradeLevel(), "Grade / Level is required");
+        String stream = normalizeRequired(request.streamSection(), "Stream / Section is required").toUpperCase(Locale.ROOT);
+        String academicYear = normalizeRequired(request.academicYear(), "Academic Year is required");
+        if (!academicYear.matches("\\d{4}")) {
+            throw new AppException("Academic Year must be a 4-digit year", HttpStatus.BAD_REQUEST);
+        }
+        String className = "Grade " + level + stream;
+
+        boolean duplicateExists = id == null
+                ? classRepository.existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCase(level, stream, academicYear)
+                : classRepository.existsByLevelIgnoreCaseAndStreamIgnoreCaseAndAcademicYearIgnoreCaseAndIdNot(level, stream, academicYear, id);
+        if (duplicateExists) {
+            throw new AppException(
+                    "Class already exists for Grade " + level + ", Stream " + stream + ", Academic Year " + academicYear,
+                    HttpStatus.CONFLICT
+            );
         }
 
-        String stream = normalizeOptional(request.stream());
-        String code = normalizeOptional(request.code());
-        if (code == null) {
-            code = (name + (stream == null ? "" : "-" + stream)).replaceAll("\\s+", "-").toUpperCase();
-        }
+        String code = generateClassCode(level, stream, academicYear);
         if (id == null ? classRepository.existsByCodeIgnoreCase(code) : classRepository.existsByCodeIgnoreCaseAndIdNot(code, id)) {
-            throw new AppException("Class code already exists", HttpStatus.CONFLICT);
+            throw new AppException("Class code already exists for generated class values", HttpStatus.CONFLICT);
         }
 
-        schoolClass.setName(name);
+        schoolClass.setName(className);
         schoolClass.setCode(code);
-        schoolClass.setLevel(normalizeOptional(request.level()));
-        schoolClass.setAcademicYear(normalizeOptional(request.academicYear()));
+        schoolClass.setLevel(level);
+        schoolClass.setAcademicYear(academicYear);
         schoolClass.setStream(stream);
         schoolClass.setCapacity(request.capacity());
         schoolClass.setStatus(request.status() == null ? SchoolClassStatus.ACTIVE : request.status());
@@ -238,6 +248,10 @@ public class SchoolClassService {
                 learners.size(),
                 capacityUsage
         );
+    }
+
+    private String generateClassCode(String level, String stream, String academicYear) {
+        return ("GRADE-" + level + "-" + stream + "-" + academicYear).replaceAll("\\s+", "-").toUpperCase(Locale.ROOT);
     }
 
     private String normalizeRequired(String value, String message) {
