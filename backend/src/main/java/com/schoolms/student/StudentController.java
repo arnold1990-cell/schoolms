@@ -4,11 +4,13 @@ import com.schoolms.common.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/students")
+@Slf4j
 @RequiredArgsConstructor
 public class StudentController {
     private final StudentService service;
@@ -48,6 +50,8 @@ public class StudentController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<StudentDtos.StudentResponse> create(@Valid @RequestBody StudentDtos.StudentRequest request) {
+        log.debug("Incoming learner create payload: admissionNumber={}, firstName={}, lastName={}, classId={}, status={}",
+                request.admissionNumber(), request.firstName(), request.lastName(), request.classId(), request.status());
         return ApiResponse.ok("Student created", service.create(request));
     }
 

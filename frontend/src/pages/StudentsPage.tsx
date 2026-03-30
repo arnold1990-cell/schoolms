@@ -32,6 +32,7 @@ interface SchoolClass {
   id: number;
   name: string;
   stream?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 type StudentStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'TRANSFERRED' | 'GRADUATED';
@@ -125,22 +126,20 @@ export function StudentsPage() {
   const [classFilter, setClassFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const classOptions = useMemo(() => classes.map((item) => ({
-    ...item,
-    label: `${item.name}${item.stream ? ` ${item.stream}` : ''}`,
-  })), [classes]);
+  const classOptions = useMemo(
+    () => classes
+      .filter((item) => (item.status ?? 'ACTIVE') === 'ACTIVE')
+      .map((item) => ({
+        ...item,
+        label: `${item.name}${item.stream ? ` ${item.stream}` : ''}`,
+      })),
+    [classes]
+  );
 
   const grades = useMemo(
     () => Array.from(new Set(classes.map((item) => item.name))).sort((a, b) => a.localeCompare(b)),
     [classes]
   );
-
-  const classOptionsForGrade = useMemo(() => {
-    if (!form.grade) {
-      return classOptions;
-    }
-    return classOptions.filter((item) => item.name === form.grade);
-  }, [classOptions, form.grade]);
 
   const loadClasses = useCallback(async () => {
     const response = await api.get('/api/classes');
@@ -191,7 +190,6 @@ export function StudentsPage() {
       ['lastName', 'Last name is required.'],
       ['gender', 'Gender is required.'],
       ['dateOfBirth', 'Date of birth is required.'],
-      ['grade', 'Grade is required.'],
       ['classId', 'Class is required.'],
       ['enrollmentDate', 'Enrollment date is required.'],
       ['guardianName', 'Guardian name is required.'],
@@ -218,10 +216,6 @@ export function StudentsPage() {
     if (form.classId && !selectedClass) {
       next.classId = 'Selected class is invalid.';
     }
-    if (form.grade && selectedClass && selectedClass.name !== form.grade) {
-      next.classId = 'Selected class does not belong to the chosen grade.';
-    }
-
     if (form.dateOfBirth) {
       const dob = new Date(`${form.dateOfBirth}T00:00:00`);
       const now = new Date();
@@ -285,6 +279,7 @@ export function StudentsPage() {
       return;
     }
 
+    const selectedClass = classes.find((item) => item.id === Number(form.classId));
     const payload = {
       ...form,
       admissionNumber: form.admissionNumber.trim(),
@@ -294,7 +289,7 @@ export function StudentsPage() {
       guardianRelationship: form.guardianRelationship.trim(),
       guardianPhone: form.guardianPhone.trim(),
       address: form.address.trim(),
-      grade: form.grade.trim(),
+      grade: selectedClass?.name ?? form.grade.trim(),
       classId: Number(form.classId),
       addressLine1: form.addressLine1 || form.address,
       email: form.email || null,
@@ -382,20 +377,17 @@ export function StudentsPage() {
                 <input type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
                 {formErrors.dateOfBirth ? <span className="field-error">{formErrors.dateOfBirth}</span> : null}
               </label>
-              <label>Grade
-                <select value={form.grade} onChange={(e) => {
-                  setField('grade', e.target.value);
-                  const firstForGrade = classOptions.find((cls) => cls.name === e.target.value);
-                  setField('classId', firstForGrade ? String(firstForGrade.id) : '');
-                }}>
-                  {grades.map((item) => <option key={item}>{item}</option>)}
-                </select>
-                {formErrors.grade ? <span className="field-error">{formErrors.grade}</span> : null}
-              </label>
               <label>Class
-                <select value={form.classId} onChange={(e) => setField('classId', e.target.value)}>
+                <select value={form.classId} onChange={(e) => {
+                  const nextClassId = e.target.value;
+                  const match = classOptions.find((item) => String(item.id) === nextClassId);
+                  setField('classId', nextClassId);
+                  if (match) {
+                    setField('grade', match.name);
+                  }
+                }}>
                   <option value="">Select class</option>
-                  {classOptionsForGrade.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  {classOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                 </select>
                 {formErrors.classId ? <span className="field-error">{formErrors.classId}</span> : null}
               </label>

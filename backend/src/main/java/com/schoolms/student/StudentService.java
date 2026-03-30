@@ -7,11 +7,13 @@ import com.schoolms.common.AppException;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class StudentService {
     private final StudentRepository studentRepository;
@@ -31,27 +33,35 @@ public class StudentService {
 
     @Transactional
     public StudentDtos.StudentResponse create(StudentDtos.StudentRequest request) {
+        log.info("Learner create request received admissionNumber={}, classId={}",
+                request.admissionNumber(), request.classId());
         String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         validateAdmissionNumber(admissionNumber, null);
         SchoolClass schoolClass = findClass(request.classId());
-        validateBusinessRules(request, schoolClass);
+        validateBusinessRules(request);
 
         Student student = new Student();
         copyFromRequest(student, request, schoolClass);
-        return map(studentRepository.save(student));
+        Student saved = studentRepository.save(student);
+        log.info("Learner created successfully id={}, admissionNumber={}", saved.getId(), saved.getAdmissionNumber());
+        return map(saved);
     }
 
     @Transactional
     public StudentDtos.StudentResponse update(Long id, StudentDtos.StudentRequest request) {
+        log.info("Learner update request received id={}, admissionNumber={}, classId={}",
+                id, request.admissionNumber(), request.classId());
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
         String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         validateAdmissionNumber(admissionNumber, id);
         SchoolClass schoolClass = findClass(request.classId());
-        validateBusinessRules(request, schoolClass);
+        validateBusinessRules(request);
 
         copyFromRequest(student, request, schoolClass);
-        return map(studentRepository.save(student));
+        Student saved = studentRepository.save(student);
+        log.info("Learner updated successfully id={}, admissionNumber={}", saved.getId(), saved.getAdmissionNumber());
+        return map(saved);
     }
 
     @Transactional
@@ -80,7 +90,7 @@ public class StudentService {
         return schoolClass;
     }
 
-    private void validateBusinessRules(StudentDtos.StudentRequest request, SchoolClass schoolClass) {
+    private void validateBusinessRules(StudentDtos.StudentRequest request) {
         LocalDate today = LocalDate.now();
         if (request.dateOfBirth() != null && !request.dateOfBirth().isBefore(today)) {
             throw new AppException("Date of birth must be in the past", HttpStatus.BAD_REQUEST);
@@ -92,11 +102,6 @@ public class StudentService {
                 && request.enrollmentDate().isBefore(request.dateOfBirth())) {
             throw new AppException("Enrollment date cannot be before date of birth", HttpStatus.BAD_REQUEST);
         }
-        String normalizedGrade = normalizeRequired(request.grade(), "Grade is required");
-        String classLevel = schoolClass.getLevel() == null ? "" : schoolClass.getLevel().trim();
-        if (!normalizedGrade.equalsIgnoreCase(classLevel)) {
-            throw new AppException("Selected class does not belong to the specified grade", HttpStatus.BAD_REQUEST);
-        }
     }
 
     private void copyFromRequest(Student student, StudentDtos.StudentRequest request, SchoolClass schoolClass) {
@@ -107,7 +112,11 @@ public class StudentService {
         student.setPreferredName(trimToNull(request.preferredName()));
         student.setGender(normalizeRequired(request.gender(), "Gender is required"));
         student.setDateOfBirth(request.dateOfBirth());
-        student.setGrade(normalizeRequired(request.grade(), "Grade is required"));
+        String requestedGrade = trimToNull(request.grade());
+        if (requestedGrade != null && !requestedGrade.equalsIgnoreCase(schoolClass.getName())) {
+            throw new AppException("Selected class does not match provided grade", HttpStatus.BAD_REQUEST);
+        }
+        student.setGrade(schoolClass.getName());
         student.setEnrollmentDate(request.enrollmentDate());
         student.setGuardianName(normalizeRequired(request.guardianName(), "Guardian name is required"));
         student.setGuardianRelationship(normalizeRequired(request.guardianRelationship(), "Guardian relationship is required"));
