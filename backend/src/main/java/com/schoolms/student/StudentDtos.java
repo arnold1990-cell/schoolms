@@ -1,6 +1,5 @@
 package com.schoolms.student;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
@@ -32,7 +31,7 @@ public class StudentDtos {
             String previousSchool,
             String phoneNumber,
             String alternativePhoneNumber,
-            @Email(message = "Email must be valid") String email,
+            String email,
             String addressLine1,
             String addressLine2,
             String city,
@@ -40,7 +39,7 @@ public class StudentDtos {
             String postalCode,
             String country,
             String guardianAltPhone,
-            @Email(message = "Guardian email must be valid") String guardianEmail,
+            String guardianEmail,
             String guardianOccupation,
             String guardianAddress,
             String emergencyContactName,

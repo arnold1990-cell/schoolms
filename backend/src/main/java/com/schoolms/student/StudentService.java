@@ -6,6 +6,7 @@ import com.schoolms.classmanagement.SchoolClassStatus;
 import com.schoolms.common.AppException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 public class StudentService {
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private final StudentRepository studentRepository;
     private final SchoolClassRepository classRepository;
 
@@ -111,36 +113,36 @@ public class StudentService {
         student.setLastName(normalizeRequired(request.lastName(), "Last name is required"));
         student.setPreferredName(trimToNull(request.preferredName()));
         student.setGender(normalizeRequired(request.gender(), "Gender is required"));
-        student.setDateOfBirth(request.dateOfBirth());
+        student.setDateOfBirth(requireDate(request.dateOfBirth(), "Date of birth is required"));
         String requestedGrade = trimToNull(request.grade());
         if (requestedGrade != null && !requestedGrade.equalsIgnoreCase(schoolClass.getName())) {
             throw new AppException("Selected class does not match provided grade", HttpStatus.BAD_REQUEST);
         }
         student.setGrade(schoolClass.getName());
-        student.setEnrollmentDate(request.enrollmentDate());
+        student.setEnrollmentDate(requireDate(request.enrollmentDate(), "Enrollment date is required"));
         student.setGuardianName(normalizeRequired(request.guardianName(), "Guardian name is required"));
         student.setGuardianRelationship(normalizeRequired(request.guardianRelationship(), "Guardian relationship is required"));
         student.setGuardianPhone(normalizeRequired(request.guardianPhone(), "Guardian phone is required"));
 
-        String normalizedAddress = trimToNull(request.address());
+        String normalizedAddress = normalizeRequired(request.address(), "Address is required");
         student.setAddress(normalizedAddress);
         student.setAddressLine1(trimToNull(request.addressLine1()) != null ? trimToNull(request.addressLine1()) : normalizedAddress);
         student.setAddressLine2(trimToNull(request.addressLine2()));
 
-        student.setStatus(request.status());
+        student.setStatus(requireStatus(request.status(), "Status is required"));
         student.setNationality(trimToNull(request.nationality()));
         student.setNationalId(trimToNull(request.nationalId()));
         student.setPassportNumber(trimToNull(request.passportNumber()));
         student.setPreviousSchool(trimToNull(request.previousSchool()));
         student.setPhoneNumber(trimToNull(request.phoneNumber()));
         student.setAlternativePhoneNumber(trimToNull(request.alternativePhoneNumber()));
-        student.setEmail(trimToNull(request.email()));
+        student.setEmail(validateOptionalEmail(request.email(), "Email must be valid"));
         student.setCity(trimToNull(request.city()));
         student.setDistrict(trimToNull(request.district()));
         student.setPostalCode(trimToNull(request.postalCode()));
         student.setCountry(trimToNull(request.country()));
         student.setGuardianAltPhone(trimToNull(request.guardianAltPhone()));
-        student.setGuardianEmail(trimToNull(request.guardianEmail()));
+        student.setGuardianEmail(validateOptionalEmail(request.guardianEmail(), "Guardian email must be valid"));
         student.setGuardianOccupation(trimToNull(request.guardianOccupation()));
         student.setGuardianAddress(trimToNull(request.guardianAddress()));
         student.setEmergencyContactName(trimToNull(request.emergencyContactName()));
@@ -165,6 +167,32 @@ public class StudentService {
         student.setFeeCategory(trimToNull(request.feeCategory()));
         student.setNotes(trimToNull(request.notes()));
         student.setSchoolClass(schoolClass);
+    }
+
+
+    private LocalDate requireDate(LocalDate value, String message) {
+        if (value == null) {
+            throw new AppException(message, HttpStatus.BAD_REQUEST);
+        }
+        return value;
+    }
+
+    private StudentStatus requireStatus(StudentStatus value, String message) {
+        if (value == null) {
+            throw new AppException(message, HttpStatus.BAD_REQUEST);
+        }
+        return value;
+    }
+
+    private String validateOptionalEmail(String value, String message) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (!EMAIL_PATTERN.matcher(normalized).matches()) {
+            throw new AppException(message, HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
     }
 
     private String trimToNull(String value) {

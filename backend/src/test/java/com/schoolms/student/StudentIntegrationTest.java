@@ -77,6 +77,32 @@ class StudentIntegrationTest {
     }
 
     @Test
+    void createStudentWithRequiredFieldsOnlySuccess() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requiredOnlyPayload("ADM-100-REQ")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-100-REQ"))
+                .andExpect(jsonPath("$.data.guardianPhone").value("555-0099"))
+                .andExpect(jsonPath("$.data.religion").isEmpty());
+    }
+
+    @Test
+    void createStudentSucceedsWhenOptionalFieldsAreBlank() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadWithBlankOptionalFields("ADM-100-OPT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-100-OPT"))
+                .andExpect(jsonPath("$.data.email").isEmpty())
+                .andExpect(jsonPath("$.data.guardianEmail").isEmpty());
+    }
+
+    @Test
     void createStudentValidationFailure() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
@@ -176,6 +202,21 @@ class StudentIntegrationTest {
     }
 
     @Test
+    void listStudentsLoadsWhenOptionalFieldsAreNull() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requiredOnlyPayload("ADM-NULL-1")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/students")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].admissionNumber").exists());
+    }
+
+    @Test
     void updateStudent() throws Exception {
         long studentId = createStudentAndGetId("ADM-103");
 
@@ -229,6 +270,48 @@ class StudentIntegrationTest {
                   "address": "Central Road",
                   "status": "ACTIVE",
                   "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
+    private String requiredOnlyPayload(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Tyvern",
+                  "lastName": "Madamombe",
+                  "gender": "MALE",
+                  "dateOfBirth": "2013-09-03",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "BABA",
+                  "guardianRelationship": "MOTHER",
+                  "guardianPhone": "555-0099",
+                  "address": "Mogoditshane",
+                  "status": "ACTIVE"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
+    private String payloadWithBlankOptionalFields(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "2013-05-12",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
+                  "email": "",
+                  "guardianEmail": "",
+                  "religion": "",
+                  "homeLanguage": ""
                 }
                 """.formatted(admissionNumber, classId);
     }
