@@ -2,143 +2,106 @@ package com.schoolms.student;
 
 import com.schoolms.classmanagement.SchoolClass;
 import com.schoolms.classmanagement.SchoolClassRepository;
-import com.schoolms.classmanagement.SchoolClassStatus;
 import com.schoolms.common.AppException;
-import java.time.LocalDate;
 import java.util.List;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class StudentService {
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private final StudentRepository studentRepository;
-    private final SchoolClassRepository classRepository;
-
-    @Transactional(readOnly = true)
-    public List<StudentDtos.StudentResponse> list(String keyword, String grade, Long classId, StudentStatus status) {
-        return studentRepository.search(keyword, grade, classId, status).stream().map(this::map).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public StudentDtos.StudentResponse getById(Long id) {
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
-        return map(student);
-    }
+    private final SchoolClassRepository schoolClassRepository;
 
     @Transactional
-    public StudentDtos.StudentResponse create(StudentDtos.StudentRequest request) {
-        log.info("Learner create request received admissionNumber={}, classId={}",
-                request.admissionNumber(), request.classId());
+    public StudentResponse createStudent(StudentCreateRequest request) {
         String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
-        validateAdmissionNumber(admissionNumber, null);
-        SchoolClass schoolClass = findClass(requireClassId(request.classId()));
-        validateBusinessRules(request);
+        ensureAdmissionNumberUnique(admissionNumber, null);
 
         Student student = new Student();
-        copyFromRequest(student, request, schoolClass);
-        Student saved = studentRepository.save(student);
-        log.info("Learner created successfully id={}, admissionNumber={}", saved.getId(), saved.getAdmissionNumber());
-        return map(saved);
+        applyCreateOrUpdate(student, request, request.schoolClassId());
+        student.setAdmissionNumber(admissionNumber);
+
+        return toResponse(studentRepository.save(student));
     }
 
     @Transactional
-    public StudentDtos.StudentResponse update(Long id, StudentDtos.StudentRequest request) {
-        log.info("Learner update request received id={}, admissionNumber={}, classId={}",
-                id, request.admissionNumber(), request.classId());
+    public StudentResponse updateStudent(Long id, StudentUpdateRequest request) {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
-        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
-        validateAdmissionNumber(admissionNumber, id);
-        SchoolClass schoolClass = findClass(requireClassId(request.classId()));
-        validateBusinessRules(request);
 
-        copyFromRequest(student, request, schoolClass);
-        Student saved = studentRepository.save(student);
-        log.info("Learner updated successfully id={}, admissionNumber={}", saved.getId(), saved.getAdmissionNumber());
-        return map(saved);
+        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
+        ensureAdmissionNumberUnique(admissionNumber, id);
+
+        applyCreateOrUpdate(student, request, request.schoolClassId());
+        student.setAdmissionNumber(admissionNumber);
+
+        return toResponse(studentRepository.save(student));
+    }
+
+    @Transactional(readOnly = true)
+    public StudentResponse getStudentById(Long id) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
+        return toResponse(student);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentResponse> getAllStudents() {
+        return studentRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public void delete(Long id) {
-        if (!studentRepository.existsById(id)) {
-            throw new AppException("Student not found", HttpStatus.NOT_FOUND);
+    public void confirmAndDeleteStudent(Long id, StudentDeleteConfirmationRequest confirmation) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
+
+        boolean matches = normalizeRequired(confirmation.firstName(), "First name is required").equals(student.getFirstName())
+                && normalizeRequired(confirmation.lastName(), "Last name is required").equals(student.getLastName())
+                && normalizeRequired(confirmation.admissionNumber(), "Admission number is required").equals(student.getAdmissionNumber())
+                && normalizeRequired(confirmation.gender(), "Gender is required").equals(student.getGender())
+                && normalizeRequired(confirmation.grade(), "Grade is required").equals(student.getGrade())
+                && confirmation.enrollmentDate().equals(student.getEnrollmentDate())
+                && confirmation.status() == student.getStatus();
+
+        if (!matches) {
+            throw new AppException("Student delete confirmation failed. Core student details do not match.", HttpStatus.BAD_REQUEST);
         }
-        studentRepository.deleteById(id);
+
+        studentRepository.delete(student);
     }
 
-    private void validateAdmissionNumber(String admissionNumber, Long id) {
-        boolean exists = id == null
-                ? studentRepository.existsByAdmissionNumberIgnoreCase(admissionNumber)
-                : studentRepository.existsByAdmissionNumberIgnoreCaseAndIdNot(admissionNumber, id);
-        if (exists) {
-            throw new AppException("Admission number already exists", HttpStatus.CONFLICT);
-        }
-    }
-
-    private SchoolClass findClass(Long classId) {
-        SchoolClass schoolClass = classRepository.findById(classId)
-                .orElseThrow(() -> new AppException("Class not found", HttpStatus.NOT_FOUND));
-        if (schoolClass.getStatus() == SchoolClassStatus.INACTIVE) {
-            throw new AppException("Class is inactive and cannot accept learners", HttpStatus.BAD_REQUEST);
-        }
-        return schoolClass;
-    }
-
-    private void validateBusinessRules(StudentDtos.StudentRequest request) {
-        LocalDate today = LocalDate.now();
-        if (request.dateOfBirth() != null && !request.dateOfBirth().isBefore(today)) {
-            throw new AppException("Date of birth must be in the past", HttpStatus.BAD_REQUEST);
-        }
-        if (request.enrollmentDate() != null && request.enrollmentDate().isAfter(today)) {
-            throw new AppException("Enrollment date cannot be in the future", HttpStatus.BAD_REQUEST);
-        }
-        if (request.dateOfBirth() != null && request.enrollmentDate() != null
-                && request.enrollmentDate().isBefore(request.dateOfBirth())) {
-            throw new AppException("Enrollment date cannot be before date of birth", HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private void copyFromRequest(Student student, StudentDtos.StudentRequest request, SchoolClass schoolClass) {
-        student.setAdmissionNumber(normalizeRequired(request.admissionNumber(), "Admission number is required"));
+    private void applyCreateOrUpdate(Student student, StudentCreateRequest request, Long schoolClassId) {
         student.setFirstName(normalizeRequired(request.firstName(), "First name is required"));
         student.setMiddleName(trimToNull(request.middleName()));
         student.setLastName(normalizeRequired(request.lastName(), "Last name is required"));
         student.setPreferredName(trimToNull(request.preferredName()));
         student.setGender(normalizeRequired(request.gender(), "Gender is required"));
         student.setDateOfBirth(request.dateOfBirth());
-        student.setGrade(schoolClass.getName());
-        student.setEnrollmentDate(requireDate(request.enrollmentDate(), "Enrollment date is required"));
+        student.setGrade(normalizeRequired(request.grade(), "Grade is required"));
+        student.setEnrollmentDate(request.enrollmentDate());
         student.setGuardianName(trimToNull(request.guardianName()));
         student.setGuardianRelationship(trimToNull(request.guardianRelationship()));
         student.setGuardianPhone(trimToNull(request.guardianPhone()));
-
-        String normalizedAddress = trimToNull(request.address());
-        student.setAddress(normalizedAddress);
-        student.setAddressLine1(trimToNull(request.addressLine1()) != null ? trimToNull(request.addressLine1()) : normalizedAddress);
-        student.setAddressLine2(trimToNull(request.addressLine2()));
-
-        student.setStatus(request.status() != null ? request.status() : StudentStatus.ACTIVE);
+        student.setAddress(trimToNull(request.address()));
+        student.setStatus(request.status());
         student.setNationality(trimToNull(request.nationality()));
         student.setNationalId(trimToNull(request.nationalId()));
         student.setPassportNumber(trimToNull(request.passportNumber()));
         student.setPreviousSchool(trimToNull(request.previousSchool()));
         student.setPhoneNumber(trimToNull(request.phoneNumber()));
         student.setAlternativePhoneNumber(trimToNull(request.alternativePhoneNumber()));
-        student.setEmail(validateOptionalEmail(request.email(), "Email must be valid"));
+        student.setEmail(trimToNull(request.email()));
+        student.setAddressLine1(trimToNull(request.addressLine1()));
+        student.setAddressLine2(trimToNull(request.addressLine2()));
         student.setCity(trimToNull(request.city()));
         student.setDistrict(trimToNull(request.district()));
         student.setPostalCode(trimToNull(request.postalCode()));
         student.setCountry(trimToNull(request.country()));
         student.setGuardianAltPhone(trimToNull(request.guardianAltPhone()));
-        student.setGuardianEmail(validateOptionalEmail(request.guardianEmail(), "Guardian email must be valid"));
+        student.setGuardianEmail(trimToNull(request.guardianEmail()));
         student.setGuardianOccupation(trimToNull(request.guardianOccupation()));
         student.setGuardianAddress(trimToNull(request.guardianAddress()));
         student.setEmergencyContactName(trimToNull(request.emergencyContactName()));
@@ -152,7 +115,7 @@ public class StudentService {
         student.setHospitalName(trimToNull(request.hospitalName()));
         student.setDoctorName(trimToNull(request.doctorName()));
         student.setDoctorPhone(trimToNull(request.doctorPhone()));
-        student.setUsesTransport(request.usesTransport() != null ? request.usesTransport() : Boolean.FALSE);
+        student.setUsesTransport(request.usesTransport());
         student.setPickupPoint(trimToNull(request.pickupPoint()));
         student.setRouteName(trimToNull(request.routeName()));
         student.setDriverAssignment(trimToNull(request.driverAssignment()));
@@ -162,30 +125,88 @@ public class StudentService {
         student.setSponsorshipStatus(trimToNull(request.sponsorshipStatus()));
         student.setFeeCategory(trimToNull(request.feeCategory()));
         student.setNotes(trimToNull(request.notes()));
-        student.setSchoolClass(schoolClass);
+        student.setSchoolClass(resolveSchoolClass(schoolClassId));
     }
 
-
-    private LocalDate requireDate(LocalDate value, String message) {
-        if (value == null) {
-            throw new AppException(message, HttpStatus.BAD_REQUEST);
-        }
-        return value;
+    private void applyCreateOrUpdate(Student student, StudentUpdateRequest request, Long schoolClassId) {
+        applyCreateOrUpdate(student, new StudentCreateRequest(
+                request.firstName(),
+                request.middleName(),
+                request.lastName(),
+                request.preferredName(),
+                request.admissionNumber(),
+                request.gender(),
+                request.dateOfBirth(),
+                request.grade(),
+                request.enrollmentDate(),
+                request.guardianName(),
+                request.guardianRelationship(),
+                request.guardianPhone(),
+                request.address(),
+                request.status(),
+                request.nationality(),
+                request.nationalId(),
+                request.passportNumber(),
+                request.previousSchool(),
+                request.phoneNumber(),
+                request.alternativePhoneNumber(),
+                request.email(),
+                request.addressLine1(),
+                request.addressLine2(),
+                request.city(),
+                request.district(),
+                request.postalCode(),
+                request.country(),
+                request.guardianAltPhone(),
+                request.guardianEmail(),
+                request.guardianOccupation(),
+                request.guardianAddress(),
+                request.emergencyContactName(),
+                request.emergencyContactPhone(),
+                request.emergencyContactRelationship(),
+                request.bloodGroup(),
+                request.allergies(),
+                request.medicalConditions(),
+                request.disabilities(),
+                request.medication(),
+                request.hospitalName(),
+                request.doctorName(),
+                request.doctorPhone(),
+                request.usesTransport(),
+                request.pickupPoint(),
+                request.routeName(),
+                request.driverAssignment(),
+                request.religion(),
+                request.homeLanguage(),
+                request.residencyType(),
+                request.sponsorshipStatus(),
+                request.feeCategory(),
+                request.notes(),
+                request.schoolClassId()
+        ), schoolClassId);
     }
 
-    private Long requireClassId(Long classId) {
-        if (classId == null) {
-            throw new AppException("Class is required", HttpStatus.BAD_REQUEST);
-        }
-        return classId;
-    }
-
-    private String validateOptionalEmail(String value, String message) {
-        String normalized = trimToNull(value);
-        if (normalized == null) {
+    private SchoolClass resolveSchoolClass(Long schoolClassId) {
+        if (schoolClassId == null) {
             return null;
         }
-        if (!EMAIL_PATTERN.matcher(normalized).matches()) {
+        return schoolClassRepository.findById(schoolClassId)
+                .orElseThrow(() -> new AppException("School class not found", HttpStatus.NOT_FOUND));
+    }
+
+    private void ensureAdmissionNumberUnique(String admissionNumber, Long existingId) {
+        boolean exists = existingId == null
+                ? studentRepository.existsByAdmissionNumberIgnoreCase(admissionNumber)
+                : studentRepository.existsByAdmissionNumberIgnoreCaseAndIdNot(admissionNumber, existingId);
+
+        if (exists) {
+            throw new AppException("Admission number already exists", HttpStatus.CONFLICT);
+        }
+    }
+
+    private String normalizeRequired(String value, String message) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
             throw new AppException(message, HttpStatus.BAD_REQUEST);
         }
         return normalized;
@@ -199,92 +220,76 @@ public class StudentService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String normalizeRequired(String value, String message) {
-        String normalized = trimToNull(value);
-        if (normalized == null) {
-            throw new AppException(message, HttpStatus.BAD_REQUEST);
-        }
-        return normalized;
-    }
+    private StudentResponse toResponse(Student student) {
+        SchoolClass schoolClass = student.getSchoolClass();
+        String fullName = List.of(student.getFirstName(), student.getMiddleName(), student.getLastName())
+                .stream()
+                .filter(part -> part != null && !part.isBlank())
+                .map(String::trim)
+                .reduce((a, b) -> a + " " + b)
+                .orElse("");
 
-    private StudentDtos.StudentResponse map(Student s) {
-        SchoolClass c = s.getSchoolClass();
-        StringBuilder fullNameBuilder = new StringBuilder();
-        if (s.getFirstName() != null && !s.getFirstName().isBlank()) {
-            fullNameBuilder.append(s.getFirstName().trim());
-        }
-        if (s.getMiddleName() != null && !s.getMiddleName().isBlank()) {
-            if (!fullNameBuilder.isEmpty()) {
-                fullNameBuilder.append(' ');
-            }
-            fullNameBuilder.append(s.getMiddleName().trim());
-        }
-        if (s.getLastName() != null && !s.getLastName().isBlank()) {
-            if (!fullNameBuilder.isEmpty()) {
-                fullNameBuilder.append(' ');
-            }
-            fullNameBuilder.append(s.getLastName().trim());
-        }
-        String fullName = fullNameBuilder.toString();
-
-        return new StudentDtos.StudentResponse(
-                s.getId(),
-                s.getAdmissionNumber(),
-                s.getFirstName(),
-                s.getMiddleName(),
-                s.getLastName(),
+        return new StudentResponse(
+                student.getId(),
+                student.getFirstName(),
+                student.getMiddleName(),
+                student.getLastName(),
                 fullName,
-                s.getPreferredName(),
-                s.getGender(),
-                s.getDateOfBirth(),
-                s.getGrade(),
-                c != null ? c.getId() : null,
-                c != null ? c.getName() : null,
-                c != null ? c.getStream() : null,
-                s.getEnrollmentDate(),
-                s.getGuardianName(),
-                s.getGuardianRelationship(),
-                s.getGuardianPhone(),
-                s.getAddress(),
-                s.getStatus(),
-                s.getNationality(),
-                s.getNationalId(),
-                s.getPassportNumber(),
-                s.getPreviousSchool(),
-                s.getPhoneNumber(),
-                s.getAlternativePhoneNumber(),
-                s.getEmail(),
-                s.getAddressLine1(),
-                s.getAddressLine2(),
-                s.getCity(),
-                s.getDistrict(),
-                s.getPostalCode(),
-                s.getCountry(),
-                s.getGuardianAltPhone(),
-                s.getGuardianEmail(),
-                s.getGuardianOccupation(),
-                s.getGuardianAddress(),
-                s.getEmergencyContactName(),
-                s.getEmergencyContactPhone(),
-                s.getEmergencyContactRelationship(),
-                s.getBloodGroup(),
-                s.getAllergies(),
-                s.getMedicalConditions(),
-                s.getDisabilities(),
-                s.getMedication(),
-                s.getHospitalName(),
-                s.getDoctorName(),
-                s.getDoctorPhone(),
-                s.getUsesTransport(),
-                s.getPickupPoint(),
-                s.getRouteName(),
-                s.getDriverAssignment(),
-                s.getReligion(),
-                s.getHomeLanguage(),
-                s.getResidencyType(),
-                s.getSponsorshipStatus(),
-                s.getFeeCategory(),
-                s.getNotes()
+                student.getPreferredName(),
+                student.getAdmissionNumber(),
+                student.getGender(),
+                student.getDateOfBirth(),
+                student.getGrade(),
+                student.getEnrollmentDate(),
+                student.getGuardianName(),
+                student.getGuardianRelationship(),
+                student.getGuardianPhone(),
+                student.getAddress(),
+                student.getStatus(),
+                student.getNationality(),
+                student.getNationalId(),
+                student.getPassportNumber(),
+                student.getPreviousSchool(),
+                student.getPhoneNumber(),
+                student.getAlternativePhoneNumber(),
+                student.getEmail(),
+                student.getAddressLine1(),
+                student.getAddressLine2(),
+                student.getCity(),
+                student.getDistrict(),
+                student.getPostalCode(),
+                student.getCountry(),
+                student.getGuardianAltPhone(),
+                student.getGuardianEmail(),
+                student.getGuardianOccupation(),
+                student.getGuardianAddress(),
+                student.getEmergencyContactName(),
+                student.getEmergencyContactPhone(),
+                student.getEmergencyContactRelationship(),
+                student.getBloodGroup(),
+                student.getAllergies(),
+                student.getMedicalConditions(),
+                student.getDisabilities(),
+                student.getMedication(),
+                student.getHospitalName(),
+                student.getDoctorName(),
+                student.getDoctorPhone(),
+                student.getUsesTransport(),
+                student.getPickupPoint(),
+                student.getRouteName(),
+                student.getDriverAssignment(),
+                student.getReligion(),
+                student.getHomeLanguage(),
+                student.getResidencyType(),
+                student.getSponsorshipStatus(),
+                student.getFeeCategory(),
+                student.getNotes(),
+                schoolClass != null ? schoolClass.getId() : null,
+                schoolClass != null ? schoolClass.getName() : null,
+                schoolClass != null ? schoolClass.getStream() : null,
+                schoolClass != null ? schoolClass.getId() : null,
+                schoolClass != null ? schoolClass.getName() : null,
+                schoolClass != null ? schoolClass.getStream() : null
         );
     }
 }
