@@ -87,6 +87,17 @@ class StudentIntegrationTest {
                 .andExpect(jsonPath("$.data.admissionNumber").exists());
     }
 
+    @Test
+    void createStudentValidationFailureWhenRequiredFieldMissing() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithoutFirstName("ADM-109")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.firstName").exists());
+    }
+
 
     @Test
     void createStudentValidationFailureWhenEnrollmentDateMissing() throws Exception {
@@ -142,6 +153,16 @@ class StudentIntegrationTest {
                         .content(validPayloadWithInvalidStatus("ADM-108")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Invalid status value"));
+    }
+
+    @Test
+    void createStudentInvalidGenderEnum() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validPayloadWithInvalidGender("ADM-110")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.gender").value("Gender must be one of: MALE, FEMALE, OTHER"));
     }
 
     @Test
@@ -212,6 +233,25 @@ class StudentIntegrationTest {
                 """.formatted(admissionNumber, classId);
     }
 
+    private String validPayloadWithoutFirstName(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "lastName": "Doe",
+                  "gender": "FEMALE",
+                  "dateOfBirth": "2013-05-12",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
     private String validPayloadWithClassId(String admissionNumber, long requestedClassId) {
         return """
                 {
@@ -270,6 +310,26 @@ class StudentIntegrationTest {
                   "guardianPhone": "555-0001",
                   "address": "Central Road",
                   "status": "ACTIVEE",
+                  "email": "jane.doe@example.com"
+                }
+                """.formatted(admissionNumber, classId);
+    }
+
+    private String validPayloadWithInvalidGender(String admissionNumber) {
+        return """
+                {
+                  "admissionNumber": "%s",
+                  "firstName": "Jane",
+                  "lastName": "Doe",
+                  "gender": "FEMME",
+                  "dateOfBirth": "2013-05-12",
+                  "classId": %d,
+                  "enrollmentDate": "2025-01-06",
+                  "guardianName": "John Doe",
+                  "guardianRelationship": "FATHER",
+                  "guardianPhone": "555-0001",
+                  "address": "Central Road",
+                  "status": "ACTIVE",
                   "email": "jane.doe@example.com"
                 }
                 """.formatted(admissionNumber, classId);
