@@ -45,6 +45,12 @@ const residencyTypes = ['DAY_SCHOLAR', 'BOARDING', 'HOSTEL'];
 const sponsorshipStatuses = ['SELF', 'SPONSORED', 'PARTIAL'];
 const feeCategories = ['REGULAR', 'SCHOLARSHIP', 'SUBSIDIZED'];
 
+const formatLocalDateOrNull = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+};
+
 const blankForm = {
   admissionNumber: '',
   firstName: '',
@@ -57,7 +63,7 @@ const blankForm = {
   classId: '',
   enrollmentDate: '',
   guardianName: '',
-  guardianRelationship: 'MOTHER',
+  guardianRelationship: '',
   guardianPhone: '',
   address: '',
   status: 'ACTIVE' as StudentStatus,
@@ -190,14 +196,8 @@ export function StudentsPage() {
       ['firstName', 'First name is required.'],
       ['lastName', 'Last name is required.'],
       ['gender', 'Gender is required.'],
-      ['dateOfBirth', 'Date of birth is required.'],
       ['classId', 'Class is required.'],
       ['enrollmentDate', 'Enrollment date is required.'],
-      ['guardianName', 'Guardian name is required.'],
-      ['guardianRelationship', 'Guardian relationship is required.'],
-      ['guardianPhone', 'Guardian phone is required.'],
-      ['address', 'Address is required.'],
-      ['status', 'Status is required.'],
     ];
 
     requiredFields.forEach(([field, message]) => {
@@ -290,12 +290,15 @@ export function StudentsPage() {
       admissionNumber: form.admissionNumber.trim(),
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
-      guardianName: form.guardianName.trim(),
-      guardianRelationship: form.guardianRelationship.trim(),
-      guardianPhone: form.guardianPhone.trim(),
-      address: form.address.trim(),
+      dateOfBirth: formatLocalDateOrNull(form.dateOfBirth),
+      guardianName: optionalStringOrNull(form.guardianName),
+      guardianRelationship: optionalStringOrNull(form.guardianRelationship),
+      guardianPhone: optionalStringOrNull(form.guardianPhone),
+      address: optionalStringOrNull(form.address),
+      status: form.status || 'ACTIVE',
       grade: selectedClass?.name ?? optionalStringOrNull(form.grade),
       classId: Number(form.classId),
+      enrollmentDate: formatLocalDateOrNull(form.enrollmentDate),
       middleName: optionalStringOrNull(form.middleName),
       preferredName: optionalStringOrNull(form.preferredName),
       nationality: optionalStringOrNull(form.nationality),
@@ -305,7 +308,7 @@ export function StudentsPage() {
       phoneNumber: optionalStringOrNull(form.phoneNumber),
       alternativePhoneNumber: optionalStringOrNull(form.alternativePhoneNumber),
       email: optionalStringOrNull(form.email),
-      addressLine1: optionalStringOrNull(form.addressLine1) ?? form.address.trim(),
+      addressLine1: optionalStringOrNull(form.addressLine1) ?? optionalStringOrNull(form.address),
       addressLine2: optionalStringOrNull(form.addressLine2),
       city: optionalStringOrNull(form.city),
       district: optionalStringOrNull(form.district),
@@ -396,7 +399,7 @@ export function StudentsPage() {
         <h3>{editingId ? 'Update Learner' : 'Register Learner'}</h3>
         <form className="form-grid learner-form" onSubmit={submit}>
           <div className="form-section">
-            <h4>Required learner details</h4>
+            <h4>Core learner details (required)</h4>
             <div className="grid two-col-grid">
               <label>Admission number
                 <input value={form.admissionNumber} onChange={(e) => setField('admissionNumber', e.target.value)} />
@@ -436,28 +439,6 @@ export function StudentsPage() {
                 <input type="date" value={form.enrollmentDate} onChange={(e) => setField('enrollmentDate', e.target.value)} />
                 {formErrors.enrollmentDate ? <span className="field-error">{formErrors.enrollmentDate}</span> : null}
               </label>
-              <label>Guardian name
-                <input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} />
-                {formErrors.guardianName ? <span className="field-error">{formErrors.guardianName}</span> : null}
-              </label>
-              <label>Guardian relationship
-                <select value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)}>
-                  {guardianRelationships.map((item) => <option key={item}>{item}</option>)}
-                </select>
-                {formErrors.guardianRelationship ? <span className="field-error">{formErrors.guardianRelationship}</span> : null}
-              </label>
-              <label>Guardian phone
-                <input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} />
-                {formErrors.guardianPhone ? <span className="field-error">{formErrors.guardianPhone}</span> : null}
-              </label>
-              <label>Address
-                <input value={form.address} onChange={(e) => setField('address', e.target.value)} />
-                {formErrors.address ? <span className="field-error">{formErrors.address}</span> : null}
-              </label>
-              <label>Status
-                <select value={form.status} onChange={(e) => setField('status', e.target.value)}>{statuses.map((item) => <option key={item}>{item}</option>)}</select>
-                {formErrors.status ? <span className="field-error">{formErrors.status}</span> : null}
-              </label>
             </div>
           </div>
 
@@ -470,6 +451,13 @@ export function StudentsPage() {
               <label>National ID<input value={form.nationalId} onChange={(e) => setField('nationalId', e.target.value)} /></label>
               <label>Passport number<input value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} /></label>
               <label>Previous school<input value={form.previousSchool} onChange={(e) => setField('previousSchool', e.target.value)} /></label>
+              <label>Status
+                <select value={form.status} onChange={(e) => setField('status', e.target.value)}>
+                  <option value="">Default ACTIVE</option>
+                  {statuses.map((item) => <option key={item}>{item}</option>)}
+                </select>
+                {formErrors.status ? <span className="field-error">{formErrors.status}</span> : null}
+              </label>
             </div>
           </details>
 
@@ -491,6 +479,15 @@ export function StudentsPage() {
           <details className="accordion-card">
             <summary>Guardian and Emergency Details (optional)</summary>
             <div className="grid two-col-grid">
+              <label>Guardian name<input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} /></label>
+              <label>Guardian relationship
+                <select value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)}>
+                  <option value="">Select</option>
+                  {guardianRelationships.map((item) => <option key={item}>{item}</option>)}
+                </select>
+              </label>
+              <label>Guardian phone<input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} /></label>
+              <label>Address<input value={form.address} onChange={(e) => setField('address', e.target.value)} /></label>
               <label>Guardian alt phone<input value={form.guardianAltPhone} onChange={(e) => setField('guardianAltPhone', e.target.value)} /></label>
               <label>Guardian email<input value={form.guardianEmail} onChange={(e) => setField('guardianEmail', e.target.value)} /></label>
               {formErrors.guardianEmail ? <span className="field-error">{formErrors.guardianEmail}</span> : null}

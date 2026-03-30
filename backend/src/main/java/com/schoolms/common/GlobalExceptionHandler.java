@@ -55,7 +55,21 @@ public class GlobalExceptionHandler {
             message = "Selected class does not exist";
             status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("not-null")) {
-            message = "A required field is missing";
+            if (normalized.contains("admission_number")) {
+                message = "Admission number is required";
+            } else if (normalized.contains("first_name")) {
+                message = "First name is required";
+            } else if (normalized.contains("last_name")) {
+                message = "Last name is required";
+            } else if (normalized.contains("gender")) {
+                message = "Gender is required";
+            } else if (normalized.contains("school_class_id")) {
+                message = "Class is required";
+            } else if (normalized.contains("enrollment_date")) {
+                message = "Enrollment date is required";
+            } else {
+                message = "A required field is missing";
+            }
             status = HttpStatus.BAD_REQUEST;
         } else {
             message = "Data integrity violation";

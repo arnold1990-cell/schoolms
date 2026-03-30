@@ -113,23 +113,23 @@ public class StudentService {
         student.setLastName(normalizeRequired(request.lastName(), "Last name is required"));
         student.setPreferredName(trimToNull(request.preferredName()));
         student.setGender(normalizeRequired(request.gender(), "Gender is required"));
-        student.setDateOfBirth(requireDate(request.dateOfBirth(), "Date of birth is required"));
+        student.setDateOfBirth(request.dateOfBirth());
         String requestedGrade = trimToNull(request.grade());
         if (requestedGrade != null && !requestedGrade.equalsIgnoreCase(schoolClass.getName())) {
             throw new AppException("Selected class does not match provided grade", HttpStatus.BAD_REQUEST);
         }
         student.setGrade(schoolClass.getName());
         student.setEnrollmentDate(requireDate(request.enrollmentDate(), "Enrollment date is required"));
-        student.setGuardianName(normalizeRequired(request.guardianName(), "Guardian name is required"));
-        student.setGuardianRelationship(normalizeRequired(request.guardianRelationship(), "Guardian relationship is required"));
-        student.setGuardianPhone(normalizeRequired(request.guardianPhone(), "Guardian phone is required"));
+        student.setGuardianName(trimToNull(request.guardianName()));
+        student.setGuardianRelationship(trimToNull(request.guardianRelationship()));
+        student.setGuardianPhone(trimToNull(request.guardianPhone()));
 
-        String normalizedAddress = normalizeRequired(request.address(), "Address is required");
+        String normalizedAddress = trimToNull(request.address());
         student.setAddress(normalizedAddress);
         student.setAddressLine1(trimToNull(request.addressLine1()) != null ? trimToNull(request.addressLine1()) : normalizedAddress);
         student.setAddressLine2(trimToNull(request.addressLine2()));
 
-        student.setStatus(requireStatus(request.status(), "Status is required"));
+        student.setStatus(request.status() != null ? request.status() : StudentStatus.ACTIVE);
         student.setNationality(trimToNull(request.nationality()));
         student.setNationalId(trimToNull(request.nationalId()));
         student.setPassportNumber(trimToNull(request.passportNumber()));
@@ -171,13 +171,6 @@ public class StudentService {
 
 
     private LocalDate requireDate(LocalDate value, String message) {
-        if (value == null) {
-            throw new AppException(message, HttpStatus.BAD_REQUEST);
-        }
-        return value;
-    }
-
-    private StudentStatus requireStatus(StudentStatus value, String message) {
         if (value == null) {
             throw new AppException(message, HttpStatus.BAD_REQUEST);
         }
