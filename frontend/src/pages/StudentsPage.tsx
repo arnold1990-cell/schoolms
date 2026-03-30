@@ -6,124 +6,83 @@ import { EmptyState, ErrorState, LoadingState } from '../components/PageStates';
 import { apiErrorMessage, unwrapItem, unwrapList } from '../utils/apiHelpers';
 import { useAuth } from '../hooks/useAuth';
 
+type StudentStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'TRANSFERRED' | 'GRADUATED';
+
 interface Student {
   id: number;
-  admissionNumber: string;
   firstName: string;
-  middleName?: string;
+  middleName?: string | null;
   lastName: string;
   fullName: string;
+  preferredName?: string | null;
+  admissionNumber: string;
   gender: string;
+  dateOfBirth?: string | null;
   grade: string;
-  classId: number;
-  className: string;
-  classStream?: string;
   enrollmentDate: string;
-  guardianName: string;
-  guardianRelationship: string;
-  guardianPhone: string;
-  address: string;
+  guardianName?: string | null;
+  guardianPhone?: string | null;
   status: StudentStatus;
-  dateOfBirth: string;
+  notes?: string | null;
+  schoolClassId?: number | null;
+  schoolClassName?: string | null;
+  schoolClassStream?: string | null;
   [key: string]: unknown;
 }
 
 interface SchoolClass {
   id: number;
   name: string;
-  level?: string;
   stream?: string;
   status?: 'ACTIVE' | 'INACTIVE';
 }
-
-type StudentStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'TRANSFERRED' | 'GRADUATED';
-
-const statuses: StudentStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED', 'TRANSFERRED', 'GRADUATED'];
-const genders = ['MALE', 'FEMALE', 'OTHER'];
-const guardianRelationships = ['MOTHER', 'FATHER', 'GUARDIAN', 'AUNT', 'UNCLE', 'SIBLING', 'OTHER'];
-const residencyTypes = ['DAY_SCHOLAR', 'BOARDING', 'HOSTEL'];
-const sponsorshipStatuses = ['SELF', 'SPONSORED', 'PARTIAL'];
-const feeCategories = ['REGULAR', 'SCHOLARSHIP', 'SUBSIDIZED'];
-
-const toIsoDate = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-
-  const parts = trimmed.split('/');
-  if (parts.length === 3) {
-    const [dd, mm, yyyy] = parts;
-    if (/^\d{1,2}$/.test(dd) && /^\d{1,2}$/.test(mm) && /^\d{4}$/.test(yyyy)) {
-      return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-    }
-  }
-
-  return null;
-};
-
-const blankForm = {
-  admissionNumber: '',
-  firstName: '',
-  middleName: '',
-  lastName: '',
-  preferredName: '',
-  gender: 'MALE',
-  dateOfBirth: '',
-  grade: '',
-  classId: '',
-  enrollmentDate: '',
-  guardianName: '',
-  guardianRelationship: '',
-  guardianPhone: '',
-  address: '',
-  status: 'ACTIVE' as StudentStatus,
-  nationality: '',
-  nationalId: '',
-  passportNumber: '',
-  previousSchool: '',
-  phoneNumber: '',
-  alternativePhoneNumber: '',
-  email: '',
-  addressLine1: '',
-  addressLine2: '',
-  city: '',
-  district: '',
-  postalCode: '',
-  country: '',
-  guardianAltPhone: '',
-  guardianEmail: '',
-  guardianOccupation: '',
-  guardianAddress: '',
-  emergencyContactName: '',
-  emergencyContactPhone: '',
-  emergencyContactRelationship: '',
-  bloodGroup: '',
-  allergies: '',
-  medicalConditions: '',
-  disabilities: '',
-  medication: '',
-  hospitalName: '',
-  doctorName: '',
-  doctorPhone: '',
-  usesTransport: false,
-  pickupPoint: '',
-  routeName: '',
-  driverAssignment: '',
-  religion: '',
-  homeLanguage: '',
-  residencyType: '',
-  sponsorshipStatus: '',
-  feeCategory: '',
-  notes: '',
-};
-
-type StudentForm = typeof blankForm;
 
 interface ApiErrorData {
   message?: string;
   data?: Record<string, string>;
 }
+
+const statuses: StudentStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED', 'TRANSFERRED', 'GRADUATED'];
+
+const blankForm = {
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  preferredName: '',
+  admissionNumber: '',
+  gender: '',
+  dateOfBirth: '',
+  grade: '',
+  enrollmentDate: '',
+  status: '',
+  schoolClassId: '',
+  guardianName: '',
+  guardianRelationship: '',
+  guardianPhone: '',
+  address: '',
+  email: '',
+  phoneNumber: '',
+  notes: '',
+};
+
+type StudentForm = typeof blankForm;
+
+const blankDeleteConfirmation = {
+  firstName: '',
+  lastName: '',
+  admissionNumber: '',
+  gender: '',
+  grade: '',
+  enrollmentDate: '',
+  status: '',
+};
+
+type DeleteConfirmForm = typeof blankDeleteConfirmation;
+
+const optionalStringOrNull = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
 export function StudentsPage() {
   const { user, authReady } = useAuth();
@@ -131,6 +90,7 @@ export function StudentsPage() {
 
   const [rows, setRows] = useState<Student[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -139,155 +99,92 @@ export function StudentsPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [keyword, setKeyword] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('');
-  const [classFilter, setClassFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  const classOptions = useMemo(
-    () => classes
-      .filter((item) => (item.status ?? 'ACTIVE') === 'ACTIVE')
-      .map((item) => ({
-        ...item,
-        label: `${item.name}${item.stream ? ` ${item.stream}` : ''}`,
-      })),
-    [classes]
-  );
-
-  const grades = useMemo(
-    () => Array.from(new Set(classes.map((item) => item.level).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
-    [classes]
-  );
-
-  const loadClasses = useCallback(async () => {
-    const response = await api.get('/api/classes');
-    const rowsData = unwrapList<SchoolClass>(response.data);
-    setClasses(rowsData);
-    if (rowsData.length > 0) {
-      setForm((prev) => ({
-        ...prev,
-        grade: prev.grade || rowsData[0].level || '',
-        classId: prev.classId || String(rowsData[0].id),
-      }));
-    }
-  }, []);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
+  const [deleteForm, setDeleteForm] = useState<DeleteConfirmForm>(blankDeleteConfirmation);
 
   const loadStudents = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const params: Record<string, string | number> = {};
-      if (keyword.trim()) params.keyword = keyword.trim();
-      if (gradeFilter) params.grade = gradeFilter;
-      if (classFilter) params.classId = Number(classFilter);
-      if (statusFilter) params.status = statusFilter;
-      const response = await api.get('/api/students', { params });
-      setRows(unwrapList<Student>(response.data));
+      const response = await api.get('/api/students');
+      const students = unwrapList<Student>(response.data);
+      setRows(students);
+      if (selectedStudent) {
+        setSelectedStudent(students.find((student) => student.id === selectedStudent.id) ?? null);
+      }
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to load students.'));
     } finally {
       setLoading(false);
     }
-  }, [classFilter, gradeFilter, keyword, statusFilter]);
+  }, [selectedStudent]);
+
+  const loadClasses = useCallback(async () => {
+    const response = await api.get('/api/classes');
+    const allClasses = unwrapList<SchoolClass>(response.data);
+    setClasses(allClasses.filter((item) => (item.status ?? 'ACTIVE') === 'ACTIVE'));
+  }, []);
 
   useEffect(() => {
     if (!authReady || !user) return;
-    void Promise.all([loadClasses(), loadStudents()]);
+    void Promise.all([loadStudents(), loadClasses()]);
   }, [authReady, loadClasses, loadStudents, user]);
 
-  const setField = (field: keyof StudentForm, value: string | boolean) => {
+  const setField = (field: keyof StudentForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setFormErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
   const validate = () => {
-    const next: Record<string, string> = {};
-    const requiredFields: Array<[keyof StudentForm, string]> = [
-      ['admissionNumber', 'Admission number is required.'],
+    const errors: Record<string, string> = {};
+    const required: Array<[keyof StudentForm, string]> = [
       ['firstName', 'First name is required.'],
       ['lastName', 'Last name is required.'],
+      ['admissionNumber', 'Admission number is required.'],
       ['gender', 'Gender is required.'],
-      ['classId', 'Class is required.'],
+      ['grade', 'Grade is required.'],
       ['enrollmentDate', 'Enrollment date is required.'],
+      ['status', 'Status is required.'],
     ];
 
-    requiredFields.forEach(([field, message]) => {
-      const value = String(form[field] ?? '').trim();
-      if (!value) next[field] = message;
+    required.forEach(([field, message]) => {
+      if (!String(form[field] ?? '').trim()) errors[field] = message;
     });
 
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      next.email = 'Email must be valid.';
-    }
-
-    if (form.guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.guardianEmail)) {
-      next.guardianEmail = 'Guardian email must be valid.';
-    }
-
-    const selectedClass = classes.find((item) => item.id === Number(form.classId));
-    if (form.classId && !selectedClass) {
-      next.classId = 'Selected class is invalid.';
-    }
-    if (form.dateOfBirth) {
-      const normalizedDob = toIsoDate(form.dateOfBirth);
-      if (!normalizedDob) {
-        next.dateOfBirth = 'Date of birth must use yyyy-MM-dd.';
-      }
-      const dob = normalizedDob ? new Date(`${normalizedDob}T00:00:00`) : new Date('invalid');
-      const now = new Date();
-      if (Number.isNaN(dob.getTime()) || dob >= now) {
-        next.dateOfBirth = 'Date of birth must be in the past.';
-      }
-    }
-    if (form.enrollmentDate) {
-      const normalizedEnrollment = toIsoDate(form.enrollmentDate);
-      if (!normalizedEnrollment) {
-        next.enrollmentDate = 'Enrollment date must use yyyy-MM-dd.';
-      }
-      const enrollment = normalizedEnrollment ? new Date(`${normalizedEnrollment}T00:00:00`) : new Date('invalid');
-      const today = new Date();
-      const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      if (Number.isNaN(enrollment.getTime())) {
-        next.enrollmentDate = 'Enrollment date is invalid.';
-      } else if (enrollment > todayOnly) {
-        next.enrollmentDate = 'Enrollment date cannot be in the future.';
-      } else if (form.dateOfBirth) {
-        const normalizedDob = toIsoDate(form.dateOfBirth);
-        const dob = normalizedDob ? new Date(`${normalizedDob}T00:00:00`) : new Date('invalid');
-        if (!Number.isNaN(dob.getTime()) && enrollment < dob) {
-          next.enrollmentDate = 'Enrollment date cannot be before date of birth.';
-        }
-      }
-    }
-
-    setFormErrors(next);
-    return Object.keys(next).length === 0;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const resetForm = () => {
     setEditingId(null);
-    const defaultClass = classes[0];
-    setForm({
-      ...blankForm,
-      grade: defaultClass?.level || '',
-      classId: defaultClass ? String(defaultClass.id) : '',
-    });
+    setForm(blankForm);
     setFormErrors({});
   };
 
   const fillFormFromStudent = (student: Student) => {
     setEditingId(student.id);
-    setForm((prev) => ({
-      ...prev,
+    setForm({
       ...blankForm,
-      ...student,
-      classId: String(student.classId || ''),
-      dateOfBirth: student.dateOfBirth || '',
-      enrollmentDate: student.enrollmentDate || '',
-      status: (student.status || 'ACTIVE') as StudentStatus,
-      usesTransport: Boolean(student.usesTransport),
-    }));
-    setFormErrors({});
+      firstName: student.firstName ?? '',
+      middleName: String(student.middleName ?? ''),
+      lastName: student.lastName ?? '',
+      preferredName: String(student.preferredName ?? ''),
+      admissionNumber: student.admissionNumber ?? '',
+      gender: student.gender ?? '',
+      dateOfBirth: String(student.dateOfBirth ?? ''),
+      grade: student.grade ?? '',
+      enrollmentDate: String(student.enrollmentDate ?? ''),
+      status: student.status ?? '',
+      schoolClassId: student.schoolClassId ? String(student.schoolClassId) : '',
+      guardianName: String(student.guardianName ?? ''),
+      guardianRelationship: String(student.guardianRelationship ?? ''),
+      guardianPhone: String(student.guardianPhone ?? ''),
+      address: String(student.address ?? ''),
+      email: String(student.email ?? ''),
+      phoneNumber: String(student.phoneNumber ?? ''),
+      notes: String(student.notes ?? ''),
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -295,110 +192,90 @@ export function StudentsPage() {
     event.preventDefault();
     setFeedback('');
     setError('');
+    if (!validate()) return;
 
-    if (!validate()) {
-      return;
-    }
-
-    const optionalStringOrNull = (value: string) => {
-      const trimmed = value.trim();
-      return trimmed ? trimmed : null;
-    };
     const payload = {
-      ...form,
-      admissionNumber: form.admissionNumber.trim(),
       firstName: form.firstName.trim(),
+      middleName: optionalStringOrNull(form.middleName),
       lastName: form.lastName.trim(),
-      dateOfBirth: toIsoDate(form.dateOfBirth),
+      preferredName: optionalStringOrNull(form.preferredName),
+      admissionNumber: form.admissionNumber.trim(),
+      gender: form.gender.trim(),
+      dateOfBirth: optionalStringOrNull(form.dateOfBirth),
+      grade: form.grade.trim(),
+      enrollmentDate: form.enrollmentDate,
+      status: form.status,
+      schoolClassId: form.schoolClassId ? Number(form.schoolClassId) : null,
       guardianName: optionalStringOrNull(form.guardianName),
       guardianRelationship: optionalStringOrNull(form.guardianRelationship),
       guardianPhone: optionalStringOrNull(form.guardianPhone),
       address: optionalStringOrNull(form.address),
-      status: form.status || 'ACTIVE',
-      grade: optionalStringOrNull(form.grade),
-      classId: Number(form.classId),
-      enrollmentDate: toIsoDate(form.enrollmentDate),
-      middleName: optionalStringOrNull(form.middleName),
-      preferredName: optionalStringOrNull(form.preferredName),
-      nationality: optionalStringOrNull(form.nationality),
-      nationalId: optionalStringOrNull(form.nationalId),
-      passportNumber: optionalStringOrNull(form.passportNumber),
-      previousSchool: optionalStringOrNull(form.previousSchool),
-      phoneNumber: optionalStringOrNull(form.phoneNumber),
-      alternativePhoneNumber: optionalStringOrNull(form.alternativePhoneNumber),
       email: optionalStringOrNull(form.email),
-      addressLine1: optionalStringOrNull(form.addressLine1) ?? optionalStringOrNull(form.address),
-      addressLine2: optionalStringOrNull(form.addressLine2),
-      city: optionalStringOrNull(form.city),
-      district: optionalStringOrNull(form.district),
-      postalCode: optionalStringOrNull(form.postalCode),
-      country: optionalStringOrNull(form.country),
-      guardianAltPhone: optionalStringOrNull(form.guardianAltPhone),
-      guardianEmail: optionalStringOrNull(form.guardianEmail),
-      guardianOccupation: optionalStringOrNull(form.guardianOccupation),
-      guardianAddress: optionalStringOrNull(form.guardianAddress),
-      emergencyContactName: optionalStringOrNull(form.emergencyContactName),
-      emergencyContactPhone: optionalStringOrNull(form.emergencyContactPhone),
-      emergencyContactRelationship: optionalStringOrNull(form.emergencyContactRelationship),
-      bloodGroup: optionalStringOrNull(form.bloodGroup),
-      allergies: optionalStringOrNull(form.allergies),
-      medicalConditions: optionalStringOrNull(form.medicalConditions),
-      disabilities: optionalStringOrNull(form.disabilities),
-      medication: optionalStringOrNull(form.medication),
-      hospitalName: optionalStringOrNull(form.hospitalName),
-      doctorName: optionalStringOrNull(form.doctorName),
-      doctorPhone: optionalStringOrNull(form.doctorPhone),
-      pickupPoint: optionalStringOrNull(form.pickupPoint),
-      routeName: optionalStringOrNull(form.routeName),
-      driverAssignment: optionalStringOrNull(form.driverAssignment),
-      religion: optionalStringOrNull(form.religion),
-      homeLanguage: optionalStringOrNull(form.homeLanguage),
-      residencyType: optionalStringOrNull(form.residencyType),
-      sponsorshipStatus: optionalStringOrNull(form.sponsorshipStatus),
-      feeCategory: optionalStringOrNull(form.feeCategory),
+      phoneNumber: optionalStringOrNull(form.phoneNumber),
       notes: optionalStringOrNull(form.notes),
     };
+
     try {
       setSaving(true);
       if (editingId) {
         await api.put(`/api/students/${editingId}`, payload);
-        setFeedback('Learner updated successfully.');
+        setFeedback('Student updated successfully.');
       } else {
         await api.post('/api/students', payload);
-        setFeedback('Learner registered successfully.');
+        setFeedback('Student created successfully.');
       }
       resetForm();
       await loadStudents();
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorData>;
       const backendErrors = axiosError.response?.data?.data;
-      if (backendErrors && typeof backendErrors === 'object') {
+      if (backendErrors) {
         setFormErrors(backendErrors);
-        const firstFieldMessage = Object.values(backendErrors).find((value) => typeof value === 'string' && value.trim().length > 0);
-        if (firstFieldMessage) {
-          setError(firstFieldMessage);
-          return;
-        }
       }
-      setError(apiErrorMessage(err, 'Failed to save learner.'));
+      setError(apiErrorMessage(err, 'Failed to save student.'));
     } finally {
       setSaving(false);
     }
   };
 
-  const search = async (event: FormEvent) => {
-    event.preventDefault();
-    await loadStudents();
+  const openDeleteConfirmation = (student: Student) => {
+    setDeleteStudent(student);
+    setDeleteForm(blankDeleteConfirmation);
+    setShowDeleteConfirm(true);
   };
 
-  const clearFilters = async () => {
-    setKeyword('');
-    setGradeFilter('');
-    setClassFilter('');
-    setStatusFilter('');
-    setTimeout(() => {
-      void loadStudents();
-    }, 0);
+  const closeDeleteConfirmation = () => {
+    setShowDeleteConfirm(false);
+    setDeleteStudent(null);
+    setDeleteForm(blankDeleteConfirmation);
+  };
+
+  const canDelete = Object.values(deleteForm).every((value) => value.trim().length > 0);
+
+  const confirmDelete = async () => {
+    if (!deleteStudent || !canDelete) return;
+
+    try {
+      await api.delete(`/api/students/${deleteStudent.id}/confirm-delete`, {
+        data: {
+          firstName: deleteForm.firstName.trim(),
+          lastName: deleteForm.lastName.trim(),
+          admissionNumber: deleteForm.admissionNumber.trim(),
+          gender: deleteForm.gender.trim(),
+          grade: deleteForm.grade.trim(),
+          enrollmentDate: deleteForm.enrollmentDate,
+          status: deleteForm.status,
+        },
+      });
+      setFeedback('Student deleted successfully.');
+      closeDeleteConfirmation();
+      if (selectedStudent?.id === deleteStudent.id) {
+        setSelectedStudent(null);
+      }
+      await loadStudents();
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to delete student.'));
+    }
   };
 
   if (!authReady) {
@@ -407,199 +284,63 @@ export function StudentsPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Learner Registration"
-        subtitle="Register learners with required information first, then capture more details as needed."
-      />
-
+      <PageHeader title="Students" subtitle="Create, edit, review, and safely delete students with confirmation." />
       {feedback ? <p className="success-text">{feedback}</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
 
       <div className="card">
-        <h3>{editingId ? 'Update Learner' : 'Register Learner'}</h3>
+        <h3>{editingId ? 'Edit Student' : 'Create Student'}</h3>
         <form className="form-grid learner-form" onSubmit={submit}>
-          <div className="form-section">
-            <h4>Core learner details (required)</h4>
-            <div className="grid two-col-grid">
-              <label>Admission number
-                <input value={form.admissionNumber} onChange={(e) => setField('admissionNumber', e.target.value)} />
-                {formErrors.admissionNumber ? <span className="field-error">{formErrors.admissionNumber}</span> : null}
-              </label>
-              <label>First name
-                <input value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />
-                {formErrors.firstName ? <span className="field-error">{formErrors.firstName}</span> : null}
-              </label>
-              <label>Last name
-                <input value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} />
-                {formErrors.lastName ? <span className="field-error">{formErrors.lastName}</span> : null}
-              </label>
-              <label>Gender
-                <select value={form.gender} onChange={(e) => setField('gender', e.target.value)}>{genders.map((item) => <option key={item}>{item}</option>)}</select>
-                {formErrors.gender ? <span className="field-error">{formErrors.gender}</span> : null}
-              </label>
-              <label>Date of birth
-                <input type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
-                {formErrors.dateOfBirth ? <span className="field-error">{formErrors.dateOfBirth}</span> : null}
-              </label>
-              <label>Class
-                <select value={form.classId} onChange={(e) => {
-                  const nextClassId = e.target.value;
-                  const match = classOptions.find((item) => String(item.id) === nextClassId);
-                  setField('classId', nextClassId);
-                  if (match) {
-                    setField('grade', match.name);
-                  }
-                }}>
-                  <option value="">Select class</option>
-                  {classOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-                {formErrors.classId ? <span className="field-error">{formErrors.classId}</span> : null}
-              </label>
-              <label>Enrollment date
-                <input type="date" value={form.enrollmentDate} onChange={(e) => setField('enrollmentDate', e.target.value)} />
-                {formErrors.enrollmentDate ? <span className="field-error">{formErrors.enrollmentDate}</span> : null}
-              </label>
-            </div>
+          <div className="grid two-col-grid">
+            <label>First name<input value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />{formErrors.firstName ? <span className="field-error">{formErrors.firstName}</span> : null}</label>
+            <label>Middle name<input value={form.middleName} onChange={(e) => setField('middleName', e.target.value)} /></label>
+            <label>Last name<input value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} />{formErrors.lastName ? <span className="field-error">{formErrors.lastName}</span> : null}</label>
+            <label>Preferred name<input value={form.preferredName} onChange={(e) => setField('preferredName', e.target.value)} /></label>
+            <label>Admission number<input value={form.admissionNumber} onChange={(e) => setField('admissionNumber', e.target.value)} />{formErrors.admissionNumber ? <span className="field-error">{formErrors.admissionNumber}</span> : null}</label>
+            <label>Gender<input value={form.gender} onChange={(e) => setField('gender', e.target.value)} />{formErrors.gender ? <span className="field-error">{formErrors.gender}</span> : null}</label>
+            <label>Grade<input value={form.grade} onChange={(e) => setField('grade', e.target.value)} />{formErrors.grade ? <span className="field-error">{formErrors.grade}</span> : null}</label>
+            <label>Enrollment date<input type="date" value={form.enrollmentDate} onChange={(e) => setField('enrollmentDate', e.target.value)} />{formErrors.enrollmentDate ? <span className="field-error">{formErrors.enrollmentDate}</span> : null}</label>
+            <label>Status<select value={form.status} onChange={(e) => setField('status', e.target.value)}><option value="">Select status</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>{formErrors.status ? <span className="field-error">{formErrors.status}</span> : null}</label>
+            <label>Date of birth<input type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} /></label>
+            <label>School class (optional)
+              <select value={form.schoolClassId} onChange={(e) => setField('schoolClassId', e.target.value)}>
+                <option value="">No class</option>
+                {classes.map((schoolClass) => (
+                  <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.name}{schoolClass.stream ? ` ${schoolClass.stream}` : ''}</option>
+                ))}
+              </select>
+            </label>
+            <label>Guardian name<input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} /></label>
+            <label>Guardian relationship<input value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)} /></label>
+            <label>Guardian phone<input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} /></label>
+            <label>Phone number<input value={form.phoneNumber} onChange={(e) => setField('phoneNumber', e.target.value)} /></label>
+            <label>Email<input value={form.email} onChange={(e) => setField('email', e.target.value)} /></label>
+            <label>Address<input value={form.address} onChange={(e) => setField('address', e.target.value)} /></label>
+            <label className="full-width">Notes<textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} /></label>
           </div>
-
-          <details className="accordion-card">
-            <summary>Optional learner details</summary>
-            <div className="grid two-col-grid">
-              <label>Middle name<input value={form.middleName} onChange={(e) => setField('middleName', e.target.value)} /></label>
-              <label>Preferred name<input value={form.preferredName} onChange={(e) => setField('preferredName', e.target.value)} /></label>
-              <label>Nationality<input value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} /></label>
-              <label>National ID<input value={form.nationalId} onChange={(e) => setField('nationalId', e.target.value)} /></label>
-              <label>Passport number<input value={form.passportNumber} onChange={(e) => setField('passportNumber', e.target.value)} /></label>
-              <label>Previous school<input value={form.previousSchool} onChange={(e) => setField('previousSchool', e.target.value)} /></label>
-              <label>Status
-                <select value={form.status} onChange={(e) => setField('status', e.target.value)}>
-                  <option value="">Default ACTIVE</option>
-                  {statuses.map((item) => <option key={item}>{item}</option>)}
-                </select>
-                {formErrors.status ? <span className="field-error">{formErrors.status}</span> : null}
-              </label>
-            </div>
-          </details>
-
-          <details className="accordion-card">
-            <summary>Additional information (optional)</summary>
-            <div className="grid two-col-grid">
-              <label>Phone number<input value={form.phoneNumber} onChange={(e) => setField('phoneNumber', e.target.value)} /></label>
-              <label>Alternative phone<input value={form.alternativePhoneNumber} onChange={(e) => setField('alternativePhoneNumber', e.target.value)} /></label>
-              <label>Email<input value={form.email} onChange={(e) => setField('email', e.target.value)} />{formErrors.email ? <span className="field-error">{formErrors.email}</span> : null}</label>
-              <label>Address line 1<input value={form.addressLine1} onChange={(e) => setField('addressLine1', e.target.value)} /></label>
-              <label>Address line 2<input value={form.addressLine2} onChange={(e) => setField('addressLine2', e.target.value)} /></label>
-              <label>City<input value={form.city} onChange={(e) => setField('city', e.target.value)} /></label>
-              <label>District<input value={form.district} onChange={(e) => setField('district', e.target.value)} /></label>
-              <label>Postal code<input value={form.postalCode} onChange={(e) => setField('postalCode', e.target.value)} /></label>
-              <label>Country<input value={form.country} onChange={(e) => setField('country', e.target.value)} /></label>
-            </div>
-          </details>
-
-          <details className="accordion-card">
-            <summary>Guardian and Emergency Details (optional)</summary>
-            <div className="grid two-col-grid">
-              <label>Guardian name<input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} /></label>
-              <label>Guardian relationship
-                <select value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)}>
-                  <option value="">Select</option>
-                  {guardianRelationships.map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </label>
-              <label>Guardian phone<input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} /></label>
-              <label>Address<input value={form.address} onChange={(e) => setField('address', e.target.value)} /></label>
-              <label>Guardian alt phone<input value={form.guardianAltPhone} onChange={(e) => setField('guardianAltPhone', e.target.value)} /></label>
-              <label>Guardian email<input value={form.guardianEmail} onChange={(e) => setField('guardianEmail', e.target.value)} /></label>
-              {formErrors.guardianEmail ? <span className="field-error">{formErrors.guardianEmail}</span> : null}
-              <label>Guardian occupation<input value={form.guardianOccupation} onChange={(e) => setField('guardianOccupation', e.target.value)} /></label>
-              <label>Guardian address<input value={form.guardianAddress} onChange={(e) => setField('guardianAddress', e.target.value)} /></label>
-              <label>Emergency contact name<input value={form.emergencyContactName} onChange={(e) => setField('emergencyContactName', e.target.value)} /></label>
-              <label>Emergency contact phone<input value={form.emergencyContactPhone} onChange={(e) => setField('emergencyContactPhone', e.target.value)} /></label>
-              <label>Emergency contact relationship<input value={form.emergencyContactRelationship} onChange={(e) => setField('emergencyContactRelationship', e.target.value)} /></label>
-            </div>
-          </details>
-
-          <details className="accordion-card">
-            <summary>Health Information (optional)</summary>
-            <div className="grid two-col-grid">
-              <label>Blood group<input value={form.bloodGroup} onChange={(e) => setField('bloodGroup', e.target.value)} /></label>
-              <label>Allergies<input value={form.allergies} onChange={(e) => setField('allergies', e.target.value)} /></label>
-              <label>Medical conditions<input value={form.medicalConditions} onChange={(e) => setField('medicalConditions', e.target.value)} /></label>
-              <label>Disabilities<input value={form.disabilities} onChange={(e) => setField('disabilities', e.target.value)} /></label>
-              <label>Medication<input value={form.medication} onChange={(e) => setField('medication', e.target.value)} /></label>
-              <label>Hospital name<input value={form.hospitalName} onChange={(e) => setField('hospitalName', e.target.value)} /></label>
-              <label>Doctor name<input value={form.doctorName} onChange={(e) => setField('doctorName', e.target.value)} /></label>
-              <label>Doctor phone<input value={form.doctorPhone} onChange={(e) => setField('doctorPhone', e.target.value)} /></label>
-            </div>
-          </details>
-
-          <details className="accordion-card">
-            <summary>Transport Information (optional)</summary>
-            <div className="grid two-col-grid">
-              <label className="check-row">Uses transport
-                <input type="checkbox" checked={form.usesTransport} onChange={(e) => setField('usesTransport', e.target.checked)} />
-              </label>
-              <label>Pickup point<input value={form.pickupPoint} onChange={(e) => setField('pickupPoint', e.target.value)} /></label>
-              <label>Route name<input value={form.routeName} onChange={(e) => setField('routeName', e.target.value)} /></label>
-              <label>Driver assignment<input value={form.driverAssignment} onChange={(e) => setField('driverAssignment', e.target.value)} /></label>
-            </div>
-          </details>
-
-          <details className="accordion-card">
-            <summary>Other School Information (optional)</summary>
-            <div className="grid two-col-grid">
-              <label>Religion<input value={form.religion} onChange={(e) => setField('religion', e.target.value)} /></label>
-              <label>Home language<input value={form.homeLanguage} onChange={(e) => setField('homeLanguage', e.target.value)} /></label>
-              <label>Residency type<select value={form.residencyType} onChange={(e) => setField('residencyType', e.target.value)}><option value="">Select</option>{residencyTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label>Sponsorship status<select value={form.sponsorshipStatus} onChange={(e) => setField('sponsorshipStatus', e.target.value)}><option value="">Select</option>{sponsorshipStatuses.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label>Fee category<select value={form.feeCategory} onChange={(e) => setField('feeCategory', e.target.value)}><option value="">Select</option>{feeCategories.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label>Notes<textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} /></label>
-            </div>
-          </details>
-
           <div className="toolbar-row">
-            <button type="submit" disabled={!canManage || saving}>{saving ? 'Saving...' : editingId ? 'Update Learner' : 'Register Learner'}</button>
-            <button type="button" className="text-button" onClick={resetForm} disabled={saving}>Reset</button>
+            <button type="submit" disabled={!canManage || saving}>{saving ? 'Saving...' : editingId ? 'Update Student' : 'Create Student'}</button>
+            <button type="button" className="text-button" onClick={resetForm}>Reset</button>
           </div>
         </form>
       </div>
 
       <div className="card">
-        <h3>Learners</h3>
-        <form className="toolbar-row" onSubmit={search}>
-          <input placeholder="Search admission #, learner name, grade, class, status" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-          <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}>
-            <option value="">All grades</option>
-            {grades.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-            <option value="">All classes</option>
-            {classOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">All status</option>
-            {statuses.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <button type="submit">Search</button>
-          <button type="button" className="text-button" onClick={clearFilters}>Clear</button>
-        </form>
-
-        {loading ? <LoadingState title="Loading learners..." /> : null}
+        <h3>Student List</h3>
+        {loading ? <LoadingState title="Loading students..." /> : null}
         {!loading && error ? <ErrorState message={error} onRetry={() => void loadStudents()} /> : null}
-        {!loading && !error && rows.length === 0 ? <EmptyState title="No learners found" message="Register learners to begin attendance and assessment workflows." /> : null}
+        {!loading && !error && rows.length === 0 ? <EmptyState title="No students found" message="Create students to get started." /> : null}
 
         {!loading && !error && rows.length > 0 ? (
           <table className="table">
             <thead>
               <tr>
                 <th>Admission #</th>
-                <th>Full name</th>
+                <th>Name</th>
                 <th>Gender</th>
                 <th>Grade</th>
-                <th>Class</th>
-                <th>Guardian name</th>
-                <th>Guardian phone</th>
                 <th>Status</th>
+                <th>Class</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -609,22 +350,63 @@ export function StudentsPage() {
                   <td>{student.admissionNumber}</td>
                   <td>{student.fullName}</td>
                   <td>{student.gender}</td>
-                  <td>{student.grade || '-'}</td>
-                  <td>{student.className ? `${student.className}${student.classStream ? ` ${student.classStream}` : ''}` : '-'}</td>
-                  <td>{student.guardianName || '-'}</td>
-                  <td>{student.guardianPhone || '-'}</td>
-                  <td>{student.status || '-'}</td>
-                  <td><button type="button" disabled={!canManage} onClick={async () => {
-                    const response = await api.get(`/api/students/${student.id}`);
-                    const details = unwrapItem<Student>(response.data);
-                    if (details) fillFormFromStudent(details);
-                  }}>Edit</button></td>
+                  <td>{student.grade}</td>
+                  <td>{student.status}</td>
+                  <td>{student.schoolClassName ? `${student.schoolClassName}${student.schoolClassStream ? ` ${student.schoolClassStream}` : ''}` : '-'}</td>
+                  <td>
+                    <button type="button" onClick={async () => {
+                      const response = await api.get(`/api/students/${student.id}`);
+                      const details = unwrapItem<Student>(response.data);
+                      if (details) {
+                        setSelectedStudent(details);
+                        fillFormFromStudent(details);
+                      }
+                    }}>Edit</button>
+                    <button type="button" className="text-button" onClick={async () => {
+                      const response = await api.get(`/api/students/${student.id}`);
+                      const details = unwrapItem<Student>(response.data);
+                      if (details) setSelectedStudent(details);
+                    }}>Details</button>
+                    <button type="button" className="text-button" disabled={!canManage} onClick={() => openDeleteConfirmation(student)}>Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : null}
       </div>
+
+      {selectedStudent ? (
+        <div className="card">
+          <h3>Student details</h3>
+          <p><strong>Name:</strong> {selectedStudent.fullName}</p>
+          <p><strong>Admission:</strong> {selectedStudent.admissionNumber}</p>
+          <p><strong>Status:</strong> {selectedStudent.status}</p>
+          <p><strong>Grade:</strong> {selectedStudent.grade}</p>
+          <p><strong>Enrollment:</strong> {selectedStudent.enrollmentDate}</p>
+          <p><strong>Class:</strong> {selectedStudent.schoolClassName ? `${selectedStudent.schoolClassName}${selectedStudent.schoolClassStream ? ` ${selectedStudent.schoolClassStream}` : ''}` : '-'}</p>
+        </div>
+      ) : null}
+
+      {showDeleteConfirm && deleteStudent ? (
+        <div className="card">
+          <h3>Confirm Student Delete</h3>
+          <p>Re-enter core student details exactly to delete <strong>{deleteStudent.fullName}</strong>.</p>
+          <div className="grid two-col-grid">
+            <label>First name<input value={deleteForm.firstName} onChange={(e) => setDeleteForm((prev) => ({ ...prev, firstName: e.target.value }))} /></label>
+            <label>Last name<input value={deleteForm.lastName} onChange={(e) => setDeleteForm((prev) => ({ ...prev, lastName: e.target.value }))} /></label>
+            <label>Admission number<input value={deleteForm.admissionNumber} onChange={(e) => setDeleteForm((prev) => ({ ...prev, admissionNumber: e.target.value }))} /></label>
+            <label>Gender<input value={deleteForm.gender} onChange={(e) => setDeleteForm((prev) => ({ ...prev, gender: e.target.value }))} /></label>
+            <label>Grade<input value={deleteForm.grade} onChange={(e) => setDeleteForm((prev) => ({ ...prev, grade: e.target.value }))} /></label>
+            <label>Enrollment date<input type="date" value={deleteForm.enrollmentDate} onChange={(e) => setDeleteForm((prev) => ({ ...prev, enrollmentDate: e.target.value }))} /></label>
+            <label>Status<select value={deleteForm.status} onChange={(e) => setDeleteForm((prev) => ({ ...prev, status: e.target.value }))}><option value="">Select status</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+          </div>
+          <div className="toolbar-row">
+            <button type="button" className="danger-button" disabled={!canDelete} onClick={() => void confirmDelete()}>Confirm Delete</button>
+            <button type="button" className="text-button" onClick={closeDeleteConfirmation}>Cancel</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

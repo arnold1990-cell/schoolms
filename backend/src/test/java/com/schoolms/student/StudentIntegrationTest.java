@@ -7,6 +7,8 @@ import com.schoolms.classmanagement.SchoolClassRepository;
 import com.schoolms.user.Role;
 import com.schoolms.user.User;
 import com.schoolms.user.UserRepository;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,225 +61,180 @@ class StudentIntegrationTest {
         adminToken = loginAndGetToken("admin@schoolms.com", "Admin123!");
 
         SchoolClass schoolClass = new SchoolClass();
-        schoolClass.setName("Grade 7");
+        schoolClass.setName("Standard 5");
         schoolClass.setStream("A");
         classId = classRepository.save(schoolClass).getId();
     }
 
     @Test
-    void createStudentSuccess() throws Exception {
+    void createStudentWithCoreRequiredFieldsPasses() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload("ADM-100")))
+                        .content(objectMapper.writeValueAsString(corePayload("ADM-001"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-100"))
-                .andExpect(jsonPath("$.data.guardianPhone").value("555-0001"));
+                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-001"));
     }
 
     @Test
-    void shouldCreateLearnerWithOnlyRequiredFields() throws Exception {
+    void createStudentWithAllFieldsPasses() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requiredOnlyPayload("ADM-100-REQ")))
+                        .content(objectMapper.writeValueAsString(fullPayload("ADM-ALL-001"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-100-REQ"))
-                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.guardianPhone").isEmpty())
-                .andExpect(jsonPath("$.data.religion").isEmpty());
+                .andExpect(jsonPath("$.data.guardianPhone").value("555-0001"))
+                .andExpect(jsonPath("$.data.schoolClassId").value(classId));
     }
 
     @Test
-    void shouldCreateLearnerWithAllFields() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload("ADM-100-ALL")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-100-ALL"))
-                .andExpect(jsonPath("$.data.guardianPhone").value("555-0001"));
-    }
+    void createStudentMissingFirstNameFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-FN");
+        payload.remove("firstName");
 
-    @Test
-    void shouldFailWhenAdmissionNumberMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("admissionNumber")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.data.admissionNumber").exists());
-    }
-
-    @Test
-    void shouldFailWhenFirstNameMissing() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("firstName")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.firstName").exists());
     }
 
-
     @Test
-    void shouldFailWhenLastNameMissing() throws Exception {
+    void createStudentMissingLastNameFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-LN");
+        payload.remove("lastName");
+
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("lastName")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.lastName").exists());
     }
 
     @Test
-    void shouldFailWhenGenderMissing() throws Exception {
+    void createStudentMissingAdmissionNumberFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-ADM");
+        payload.remove("admissionNumber");
+
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("gender")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.admissionNumber").exists());
+    }
+
+    @Test
+    void createStudentMissingGenderFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-GENDER");
+        payload.remove("gender");
+
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.gender").exists());
     }
 
     @Test
-    void shouldFailWhenClassIdMissing() throws Exception {
+    void createStudentMissingGradeFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-GRADE");
+        payload.remove("grade");
+
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("classId")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.data.classId").exists());
+                .andExpect(jsonPath("$.data.grade").exists());
     }
 
     @Test
-    void shouldFailWhenEnrollmentDateMissing() throws Exception {
+    void createStudentMissingEnrollmentDateFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-ENR");
+        payload.remove("enrollmentDate");
+
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payloadMissingField("enrollmentDate")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.enrollmentDate").exists());
     }
 
     @Test
-    void createStudentDuplicateAdmissionNumber() throws Exception {
-        mockMvc.perform(post("/api/students")
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(validPayload("ADM-101"))).andExpect(status().isOk());
+    void createStudentMissingStatusFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-MISS-STATUS");
+        payload.remove("status");
 
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload("ADM-101")))
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.status").exists());
+    }
+
+    @Test
+    void createStudentWithDuplicateAdmissionNumberFails() throws Exception {
+        mockMvc.perform(post("/api/students")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(corePayload("ADM-DUP-1"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(corePayload("ADM-DUP-1"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Admission number already exists"));
     }
 
     @Test
-    void createStudentInvalidClassId() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayloadWithClassId("ADM-106", 999999L)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Class not found"));
-    }
+    void createStudentWithNullSchoolClassPasses() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-NO-CLASS");
+        payload.put("schoolClassId", null);
 
-    @Test
-    void shouldFailWhenEnrollmentDateFormatInvalid() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayloadWithInvalidEnrollmentDate("ADM-107")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("enrollmentDate must be in yyyy-MM-dd format"));
-    }
-
-    @Test
-    void shouldDefaultStatusToActiveWhenOmitted() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requiredOnlyPayload("ADM-STATUS-DEFAULT")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.data.schoolClassId").isEmpty());
     }
 
     @Test
-    void createStudentInvalidEnumValue() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayloadWithInvalidStatus("ADM-108")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid status value"));
-    }
-
-    @Test
-    void createStudentInvalidGenderEnum() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayloadWithInvalidGender("ADM-110")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.gender").value("Gender must be one of: MALE, FEMALE, OTHER"));
-    }
-
-    @Test
-    void fetchStudentById() throws Exception {
-        long studentId = createStudentAndGetId("ADM-102");
-
-        mockMvc.perform(get("/api/students/{id}", studentId)
-                        .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").value(studentId));
-    }
-
-    @Test
-    void listStudentsLoadsWhenOptionalFieldsAreNull() throws Exception {
-        mockMvc.perform(post("/api/students")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requiredOnlyPayload("ADM-NULL-1")))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/students")
-                        .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].admissionNumber").exists());
-    }
-
-    @Test
-    void updateStudent() throws Exception {
-        long studentId = createStudentAndGetId("ADM-103");
+    void updateStudentWithOptionalFieldsEmptyPasses() throws Exception {
+        long studentId = createStudentAndGetId(corePayload("ADM-UPD-1"));
+        Map<String, Object> payload = corePayload("ADM-UPD-1");
+        payload.put("guardianName", "");
+        payload.put("notes", " ");
+        payload.put("schoolClassId", null);
 
         mockMvc.perform(put("/api/students/{id}", studentId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload("ADM-103-UPDATED")))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-103-UPDATED"));
+                .andExpect(jsonPath("$.data.guardianName").isEmpty())
+                .andExpect(jsonPath("$.data.notes").isEmpty());
     }
 
     @Test
-    void deleteStudent() throws Exception {
-        long studentId = createStudentAndGetId("ADM-104");
+    void deleteStudentWithMatchingConfirmationFieldsPasses() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-DEL-1");
+        long studentId = createStudentAndGetId(payload);
 
-        mockMvc.perform(delete("/api/students/{id}", studentId)
-                        .header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(delete("/api/students/{id}/confirm-delete", studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deletePayload(payload))))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/students/{id}", studentId)
@@ -285,155 +242,107 @@ class StudentIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    private long createStudentAndGetId(String admissionNumber) throws Exception {
+    @Test
+    void deleteStudentWithMismatchedConfirmationFieldFails() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-DEL-2");
+        long studentId = createStudentAndGetId(payload);
+
+        Map<String, Object> confirmation = deletePayload(payload);
+        confirmation.put("grade", "Standard 6");
+
+        mockMvc.perform(delete("/api/students/{id}/confirm-delete", studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmation)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Student delete confirmation failed. Core student details do not match."));
+    }
+
+    private long createStudentAndGetId(Map<String, Object> payload) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload(admissionNumber)))
+                        .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
-        return payload.path("data").path("id").asLong();
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        return body.path("data").path("id").asLong();
     }
 
-
-    private String requiredOnlyPayload(String admissionNumber) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Tyvern",
-                  "lastName": "Madamombe",
-                  "gender": "MALE",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06"
-                }
-                """.formatted(admissionNumber, classId);
+    private Map<String, Object> corePayload(String admissionNumber) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("firstName", "John");
+        payload.put("lastName", "Doe");
+        payload.put("admissionNumber", admissionNumber);
+        payload.put("gender", "Male");
+        payload.put("grade", "Standard 5");
+        payload.put("enrollmentDate", "2026-03-30");
+        payload.put("status", "ACTIVE");
+        return payload;
     }
 
-    private String payloadMissingField(String missingField) {
-        return """
-                {
-                  "admissionNumber": "ADM-MISSING",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMALE",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06",
-                  "status": "ACTIVE"
-                }
-                """
-                .formatted(classId)
-                .replace("\"" + missingField + "\": \"ADM-MISSING\",", "")
-                .replace("\"" + missingField + "\": \"Jane\",", "")
-                .replace("\"" + missingField + "\": \"Doe\",", "")
-                .replace("\"" + missingField + "\": \"FEMALE\",", "")
-                .replace("\"" + missingField + "\": %d,".formatted(classId), "")
-                .replace("\"" + missingField + "\": \"2025-01-06\",", "");
+    private Map<String, Object> fullPayload(String admissionNumber) {
+        Map<String, Object> payload = corePayload(admissionNumber);
+        payload.put("middleName", "A");
+        payload.put("preferredName", "JD");
+        payload.put("dateOfBirth", "2014-02-01");
+        payload.put("guardianName", "Jane Doe");
+        payload.put("guardianRelationship", "Mother");
+        payload.put("guardianPhone", "555-0001");
+        payload.put("address", "Main Street");
+        payload.put("nationality", "Zimbabwean");
+        payload.put("nationalId", "12-345678Z12");
+        payload.put("passportNumber", "PA123456");
+        payload.put("previousSchool", "City Prep");
+        payload.put("phoneNumber", "555-0010");
+        payload.put("alternativePhoneNumber", "555-0011");
+        payload.put("email", "john@example.com");
+        payload.put("addressLine1", "Line 1");
+        payload.put("addressLine2", "Line 2");
+        payload.put("city", "Harare");
+        payload.put("district", "CBD");
+        payload.put("postalCode", "0001");
+        payload.put("country", "Zimbabwe");
+        payload.put("guardianAltPhone", "555-0012");
+        payload.put("guardianEmail", "guardian@example.com");
+        payload.put("guardianOccupation", "Engineer");
+        payload.put("guardianAddress", "Guardian Address");
+        payload.put("emergencyContactName", "Uncle Joe");
+        payload.put("emergencyContactPhone", "555-0020");
+        payload.put("emergencyContactRelationship", "Uncle");
+        payload.put("bloodGroup", "O+");
+        payload.put("allergies", "Peanuts");
+        payload.put("medicalConditions", "Asthma");
+        payload.put("disabilities", "None");
+        payload.put("medication", "Inhaler");
+        payload.put("hospitalName", "Central Hospital");
+        payload.put("doctorName", "Dr. Smith");
+        payload.put("doctorPhone", "555-0030");
+        payload.put("usesTransport", true);
+        payload.put("pickupPoint", "Gate A");
+        payload.put("routeName", "Route 2");
+        payload.put("driverAssignment", "Driver A");
+        payload.put("religion", "Christianity");
+        payload.put("homeLanguage", "English");
+        payload.put("residencyType", "Day Scholar");
+        payload.put("sponsorshipStatus", "Self");
+        payload.put("feeCategory", "Regular");
+        payload.put("notes", "N/A");
+        payload.put("schoolClassId", classId);
+        return payload;
     }
 
-    private String validPayloadWithClassId(String admissionNumber, long requestedClassId) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMALE",
-                  "dateOfBirth": "2013-05-12",
-                  "grade": "Grade 7",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06",
-                  "guardianName": "John Doe",
-                  "guardianRelationship": "FATHER",
-                  "guardianPhone": "555-0001",
-                  "address": "Central Road",
-                  "status": "ACTIVE",
-                  "email": "jane.doe@example.com"
-                }
-                """.formatted(admissionNumber, requestedClassId);
-    }
-
-    private String validPayloadWithInvalidEnrollmentDate(String admissionNumber) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMALE",
-                  "dateOfBirth": "2013-05-12",
-                  "grade": "Grade 7",
-                  "classId": %d,
-                  "enrollmentDate": "06/01/2025",
-                  "guardianName": "John Doe",
-                  "guardianRelationship": "FATHER",
-                  "guardianPhone": "555-0001",
-                  "address": "Central Road",
-                  "status": "ACTIVE",
-                  "email": "jane.doe@example.com"
-                }
-                """.formatted(admissionNumber, classId);
-    }
-
-    private String validPayloadWithInvalidStatus(String admissionNumber) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMALE",
-                  "dateOfBirth": "2013-05-12",
-                  "grade": "Grade 7",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06",
-                  "guardianName": "John Doe",
-                  "guardianRelationship": "FATHER",
-                  "guardianPhone": "555-0001",
-                  "address": "Central Road",
-                  "status": "ACTIVEE",
-                  "email": "jane.doe@example.com"
-                }
-                """.formatted(admissionNumber, classId);
-    }
-
-    private String validPayloadWithInvalidGender(String admissionNumber) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMME",
-                  "dateOfBirth": "2013-05-12",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06",
-                  "guardianName": "John Doe",
-                  "guardianRelationship": "FATHER",
-                  "guardianPhone": "555-0001",
-                  "address": "Central Road",
-                  "status": "ACTIVE",
-                  "email": "jane.doe@example.com"
-                }
-                """.formatted(admissionNumber, classId);
-    }
-
-    private String validPayload(String admissionNumber) {
-        return """
-                {
-                  "admissionNumber": "%s",
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "gender": "FEMALE",
-                  "dateOfBirth": "2013-05-12",
-                  "grade": "Grade 7",
-                  "classId": %d,
-                  "enrollmentDate": "2025-01-06",
-                  "guardianName": "John Doe",
-                  "guardianRelationship": "FATHER",
-                  "guardianPhone": "555-0001",
-                  "address": "Central Road",
-                  "status": "ACTIVE",
-                  "email": "jane.doe@example.com"
-                }
-                """.formatted(admissionNumber, classId);
+    private Map<String, Object> deletePayload(Map<String, Object> sourcePayload) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("firstName", sourcePayload.get("firstName"));
+        payload.put("lastName", sourcePayload.get("lastName"));
+        payload.put("admissionNumber", sourcePayload.get("admissionNumber"));
+        payload.put("gender", sourcePayload.get("gender"));
+        payload.put("grade", sourcePayload.get("grade"));
+        payload.put("enrollmentDate", sourcePayload.get("enrollmentDate"));
+        payload.put("status", sourcePayload.get("status"));
+        return payload;
     }
 
     private void createUser(String email, String password, Role role) {

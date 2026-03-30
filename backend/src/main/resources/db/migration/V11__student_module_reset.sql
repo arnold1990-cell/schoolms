@@ -1,0 +1,63 @@
+ALTER TABLE IF EXISTS student
+    ALTER COLUMN first_name SET NOT NULL,
+    ALTER COLUMN last_name SET NOT NULL,
+    ALTER COLUMN admission_number SET NOT NULL,
+    ALTER COLUMN gender SET NOT NULL,
+    ALTER COLUMN grade SET NOT NULL,
+    ALTER COLUMN enrollment_date SET NOT NULL,
+    ALTER COLUMN status SET NOT NULL,
+    ALTER COLUMN school_class_id DROP NOT NULL,
+    ALTER COLUMN middle_name DROP NOT NULL,
+    ALTER COLUMN preferred_name DROP NOT NULL,
+    ALTER COLUMN date_of_birth DROP NOT NULL,
+    ALTER COLUMN guardian_name DROP NOT NULL,
+    ALTER COLUMN guardian_relationship DROP NOT NULL,
+    ALTER COLUMN guardian_phone DROP NOT NULL,
+    ALTER COLUMN address DROP NOT NULL,
+    ALTER COLUMN nationality DROP NOT NULL,
+    ALTER COLUMN national_id DROP NOT NULL,
+    ALTER COLUMN passport_number DROP NOT NULL,
+    ALTER COLUMN previous_school DROP NOT NULL,
+    ALTER COLUMN phone_number DROP NOT NULL,
+    ALTER COLUMN alternative_phone_number DROP NOT NULL,
+    ALTER COLUMN email DROP NOT NULL,
+    ALTER COLUMN address_line1 DROP NOT NULL,
+    ALTER COLUMN address_line2 DROP NOT NULL,
+    ALTER COLUMN city DROP NOT NULL,
+    ALTER COLUMN district DROP NOT NULL,
+    ALTER COLUMN postal_code DROP NOT NULL,
+    ALTER COLUMN country DROP NOT NULL,
+    ALTER COLUMN guardian_alt_phone DROP NOT NULL,
+    ALTER COLUMN guardian_email DROP NOT NULL,
+    ALTER COLUMN guardian_occupation DROP NOT NULL,
+    ALTER COLUMN guardian_address DROP NOT NULL,
+    ALTER COLUMN emergency_contact_name DROP NOT NULL,
+    ALTER COLUMN emergency_contact_phone DROP NOT NULL,
+    ALTER COLUMN emergency_contact_relationship DROP NOT NULL,
+    ALTER COLUMN blood_group DROP NOT NULL,
+    ALTER COLUMN allergies DROP NOT NULL,
+    ALTER COLUMN medical_conditions DROP NOT NULL,
+    ALTER COLUMN disabilities DROP NOT NULL,
+    ALTER COLUMN medication DROP NOT NULL,
+    ALTER COLUMN hospital_name DROP NOT NULL,
+    ALTER COLUMN doctor_name DROP NOT NULL,
+    ALTER COLUMN doctor_phone DROP NOT NULL,
+    ALTER COLUMN uses_transport DROP NOT NULL,
+    ALTER COLUMN pickup_point DROP NOT NULL,
+    ALTER COLUMN route_name DROP NOT NULL,
+    ALTER COLUMN driver_assignment DROP NOT NULL,
+    ALTER COLUMN religion DROP NOT NULL,
+    ALTER COLUMN home_language DROP NOT NULL,
+    ALTER COLUMN residency_type DROP NOT NULL,
+    ALTER COLUMN sponsorship_status DROP NOT NULL,
+    ALTER COLUMN fee_category DROP NOT NULL,
+    ALTER COLUMN notes DROP NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uk_student_admission_number'
+    ) THEN
+        ALTER TABLE student ADD CONSTRAINT uk_student_admission_number UNIQUE (admission_number);
+    END IF;
+END $$;
