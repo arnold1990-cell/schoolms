@@ -18,14 +18,14 @@ import { apiErrorMessage } from '../utils/apiHelpers';
 const statuses: ClassStatus[] = ['ACTIVE', 'INACTIVE'];
 
 const blankForm = {
-  name: '',
-  code: '',
   level: '',
   academicYear: '',
   stream: '',
   capacity: '',
   status: 'ACTIVE' as ClassStatus,
 };
+
+type ClassFormErrors = Partial<Record<'level' | 'stream' | 'academicYear' | 'capacity', string>>;
 
 export function ClassesPage() {
   const { user, authReady } = useAuth();
@@ -40,6 +40,8 @@ export function ClassesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SchoolClassSummary | null>(null);
   const [form, setForm] = useState(blankForm);
+  const [formErrors, setFormErrors] = useState<ClassFormErrors>({});
+  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SchoolClassSummary | null>(null);
 
   const load = useCallback(async () => {
@@ -69,24 +71,50 @@ export function ClassesPage() {
     );
   }, [keyword, rows]);
 
+  const classNamePreview = useMemo(() => {
+    const grade = form.level.trim();
+    const stream = form.stream.trim().toUpperCase();
+    return grade && stream ? `Grade ${grade}${stream}` : 'Grade —';
+  }, [form.level, form.stream]);
+
   const openCreate = () => {
     setEditing(null);
     setForm(blankForm);
+    setFormErrors({});
     setOpen(true);
   };
 
   const openEdit = (row: SchoolClassSummary) => {
     setEditing(row);
     setForm({
-      name: row.name || '',
-      code: row.code || '',
       level: row.level || '',
       academicYear: row.academicYear || '',
       stream: row.stream || '',
       capacity: row.capacity ? String(row.capacity) : '',
       status: row.status || 'ACTIVE',
     });
+    setFormErrors({});
     setOpen(true);
+  };
+
+  const validateForm = (): ClassFormErrors => {
+    const errors: ClassFormErrors = {};
+    if (!form.level.trim()) {
+      errors.level = 'Grade / Level is required.';
+    }
+    if (!form.stream.trim()) {
+      errors.stream = 'Stream / Section is required.';
+    }
+    if (!form.academicYear.trim()) {
+      errors.academicYear = 'Academic Year is required.';
+    }
+    if (form.capacity.trim()) {
+      const parsed = Number(form.capacity);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        errors.capacity = 'Capacity must be a positive number.';
+      }
+    }
+    return errors;
   };
 
   const submit = async (event: FormEvent) => {
@@ -94,22 +122,22 @@ export function ClassesPage() {
     setError('');
     setFeedback('');
 
-    if (!form.name.trim()) {
-      setError('Class name is required.');
+    const errors = validateForm();
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
     const payload: ClassUpsertPayload = {
-      name: form.name.trim(),
-      code: form.code.trim() || null,
-      level: form.level.trim() || null,
-      academicYear: form.academicYear.trim() || null,
-      stream: form.stream.trim() || null,
-      capacity: form.capacity ? Number(form.capacity) : null,
+      gradeLevel: form.level.trim(),
+      streamSection: form.stream.trim().toUpperCase(),
+      academicYear: form.academicYear.trim(),
+      capacity: form.capacity.trim() ? Number(form.capacity.trim()) : null,
       status: form.status,
     };
 
     try {
+      setSaving(true);
       if (editing) {
         await updateClass(editing.id, payload);
         setFeedback('Class updated successfully.');
@@ -118,9 +146,13 @@ export function ClassesPage() {
         setFeedback('Class created successfully.');
       }
       setOpen(false);
+      setForm(blankForm);
+      setFormErrors({});
       await load();
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to save class.'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -182,14 +214,29 @@ export function ClassesPage() {
 
       <FormModal title={editing ? 'Edit Class' : 'Add Class'} open={open && isAdmin} onClose={() => setOpen(false)}>
         <form className="form-grid" onSubmit={submit}>
-          <label>Class name<input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></label>
-          <label>Class code<input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} /></label>
-          <label>Grade/Level<input value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} /></label>
-          <label>Academic year<input value={form.academicYear} onChange={(e) => setForm((p) => ({ ...p, academicYear: e.target.value }))} /></label>
-          <label>Stream/Section<input value={form.stream} onChange={(e) => setForm((p) => ({ ...p, stream: e.target.value }))} /></label>
-          <label>Capacity<input type="number" min={1} value={form.capacity} onChange={(e) => setForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
-          <label>Status<select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as ClassStatus }))}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
-          <button type="submit">{editing ? 'Update Class' : 'Save Class'}</button>
+          <label>Grade / Level
+            <input value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} />
+            {formErrors.level ? <span className="field-error">{formErrors.level}</span> : null}
+          </label>
+          <label>Stream / Section
+            <input value={form.stream} onChange={(e) => setForm((p) => ({ ...p, stream: e.target.value }))} />
+            {formErrors.stream ? <span className="field-error">{formErrors.stream}</span> : null}
+          </label>
+          <label>Academic Year
+            <input value={form.academicYear} onChange={(e) => setForm((p) => ({ ...p, academicYear: e.target.value }))} />
+            {formErrors.academicYear ? <span className="field-error">{formErrors.academicYear}</span> : null}
+          </label>
+          <label>Capacity
+            <input type="number" min={1} value={form.capacity} onChange={(e) => setForm((p) => ({ ...p, capacity: e.target.value }))} />
+            {formErrors.capacity ? <span className="field-error">{formErrors.capacity}</span> : null}
+          </label>
+          <label>Status
+            <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as ClassStatus }))}>
+              {statuses.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </label>
+          <p className="hint-text"><strong>Class Name Preview:</strong> {classNamePreview}</p>
+          <button type="submit" disabled={saving}>{saving ? 'Saving...' : editing ? 'Update Class' : 'Save Class'}</button>
         </form>
       </FormModal>
 
