@@ -229,14 +229,22 @@ export function StudentsPage() {
       next.classId = 'Selected class is invalid.';
     }
     if (form.dateOfBirth) {
-      const dob = new Date(`${form.dateOfBirth}T00:00:00`);
+      const normalizedDob = toIsoDate(form.dateOfBirth);
+      if (!normalizedDob) {
+        next.dateOfBirth = 'Date of birth must use yyyy-MM-dd.';
+      }
+      const dob = normalizedDob ? new Date(`${normalizedDob}T00:00:00`) : new Date('invalid');
       const now = new Date();
       if (Number.isNaN(dob.getTime()) || dob >= now) {
         next.dateOfBirth = 'Date of birth must be in the past.';
       }
     }
     if (form.enrollmentDate) {
-      const enrollment = new Date(`${form.enrollmentDate}T00:00:00`);
+      const normalizedEnrollment = toIsoDate(form.enrollmentDate);
+      if (!normalizedEnrollment) {
+        next.enrollmentDate = 'Enrollment date must use yyyy-MM-dd.';
+      }
+      const enrollment = normalizedEnrollment ? new Date(`${normalizedEnrollment}T00:00:00`) : new Date('invalid');
       const today = new Date();
       const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       if (Number.isNaN(enrollment.getTime())) {
@@ -244,7 +252,8 @@ export function StudentsPage() {
       } else if (enrollment > todayOnly) {
         next.enrollmentDate = 'Enrollment date cannot be in the future.';
       } else if (form.dateOfBirth) {
-        const dob = new Date(`${form.dateOfBirth}T00:00:00`);
+        const normalizedDob = toIsoDate(form.dateOfBirth);
+        const dob = normalizedDob ? new Date(`${normalizedDob}T00:00:00`) : new Date('invalid');
         if (!Number.isNaN(dob.getTime()) && enrollment < dob) {
           next.enrollmentDate = 'Enrollment date cannot be before date of birth.';
         }
@@ -291,7 +300,6 @@ export function StudentsPage() {
       return;
     }
 
-    const selectedClass = classes.find((item) => item.id === Number(form.classId));
     const optionalStringOrNull = (value: string) => {
       const trimmed = value.trim();
       return trimmed ? trimmed : null;
@@ -307,7 +315,7 @@ export function StudentsPage() {
       guardianPhone: optionalStringOrNull(form.guardianPhone),
       address: optionalStringOrNull(form.address),
       status: form.status || 'ACTIVE',
-      grade: selectedClass?.name ?? optionalStringOrNull(form.grade),
+      grade: optionalStringOrNull(form.grade),
       classId: Number(form.classId),
       enrollmentDate: toIsoDate(form.enrollmentDate),
       middleName: optionalStringOrNull(form.middleName),
@@ -350,10 +358,6 @@ export function StudentsPage() {
       feeCategory: optionalStringOrNull(form.feeCategory),
       notes: optionalStringOrNull(form.notes),
     };
-    if (import.meta.env.DEV) {
-      console.debug('[Learner registration] request payload', payload);
-    }
-
     try {
       setSaving(true);
       if (editingId) {
@@ -370,6 +374,11 @@ export function StudentsPage() {
       const backendErrors = axiosError.response?.data?.data;
       if (backendErrors && typeof backendErrors === 'object') {
         setFormErrors(backendErrors);
+        const firstFieldMessage = Object.values(backendErrors).find((value) => typeof value === 'string' && value.trim().length > 0);
+        if (firstFieldMessage) {
+          setError(firstFieldMessage);
+          return;
+        }
       }
       setError(apiErrorMessage(err, 'Failed to save learner.'));
     } finally {

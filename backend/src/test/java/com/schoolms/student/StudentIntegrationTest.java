@@ -103,7 +103,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void shouldFailWhenAdmissionNumberIsMissing() throws Exception {
+    void shouldFailWhenAdmissionNumberMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +114,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void shouldFailWhenFirstNameIsMissing() throws Exception {
+    void shouldFailWhenFirstNameMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +126,7 @@ class StudentIntegrationTest {
 
 
     @Test
-    void shouldFailWhenLastNameIsMissing() throws Exception {
+    void shouldFailWhenLastNameMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -137,7 +137,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void shouldFailWhenGenderIsMissing() throws Exception {
+    void shouldFailWhenGenderMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -148,7 +148,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void shouldFailWhenClassIdIsMissing() throws Exception {
+    void shouldFailWhenClassIdMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -159,7 +159,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void shouldFailWhenEnrollmentDateIsMissing() throws Exception {
+    void shouldFailWhenEnrollmentDateMissing() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -195,13 +195,24 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void createStudentInvalidDateFormat() throws Exception {
+    void shouldFailWhenEnrollmentDateFormatInvalid() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayloadWithInvalidDate("ADM-107")))
+                        .content(validPayloadWithInvalidEnrollmentDate("ADM-107")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid date value. Use yyyy-MM-dd format"));
+                .andExpect(jsonPath("$.message").value("enrollmentDate must be in yyyy-MM-dd format"));
+    }
+
+    @Test
+    void shouldDefaultStatusToActiveWhenOmitted() throws Exception {
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requiredOnlyPayload("ADM-STATUS-DEFAULT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
 
     @Test
@@ -342,17 +353,17 @@ class StudentIntegrationTest {
                 """.formatted(admissionNumber, requestedClassId);
     }
 
-    private String validPayloadWithInvalidDate(String admissionNumber) {
+    private String validPayloadWithInvalidEnrollmentDate(String admissionNumber) {
         return """
                 {
                   "admissionNumber": "%s",
                   "firstName": "Jane",
                   "lastName": "Doe",
                   "gender": "FEMALE",
-                  "dateOfBirth": "05/12/2013",
+                  "dateOfBirth": "2013-05-12",
                   "grade": "Grade 7",
                   "classId": %d,
-                  "enrollmentDate": "2025-01-06",
+                  "enrollmentDate": "06/01/2025",
                   "guardianName": "John Doe",
                   "guardianRelationship": "FATHER",
                   "guardianPhone": "555-0001",
