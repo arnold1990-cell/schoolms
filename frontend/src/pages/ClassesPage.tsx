@@ -18,14 +18,14 @@ import { apiErrorMessage } from '../utils/apiHelpers';
 const statuses: ClassStatus[] = ['ACTIVE', 'INACTIVE'];
 
 const blankForm = {
-  level: '',
+  standard: '',
   academicYear: '',
-  stream: '',
+  streamSection: '',
   capacity: '',
   status: 'ACTIVE' as ClassStatus,
 };
 
-type ClassFormErrors = Partial<Record<'level' | 'stream' | 'academicYear' | 'capacity', string>>;
+type ClassFormErrors = Partial<Record<'standard' | 'streamSection' | 'academicYear' | 'capacity' | 'status', string>>;
 
 export function ClassesPage() {
   const { user, authReady } = useAuth();
@@ -41,6 +41,7 @@ export function ClassesPage() {
   const [editing, setEditing] = useState<SchoolClassSummary | null>(null);
   const [form, setForm] = useState(blankForm);
   const [formErrors, setFormErrors] = useState<ClassFormErrors>({});
+  const [legacyNotice, setLegacyNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SchoolClassSummary | null>(null);
 
@@ -65,45 +66,83 @@ export function ClassesPage() {
     const term = keyword.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((item) =>
-      [item.name, item.level, item.academicYear, item.stream, item.classTeacherName, item.status]
+      [item.name, item.level, item.academicYear, item.stream, item.status]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term))
     );
   }, [keyword, rows]);
 
   const classNamePreview = useMemo(() => {
-    const grade = form.level.trim();
-    const stream = form.stream.trim().toUpperCase();
-    return grade && stream ? `Grade ${grade}${stream}` : 'Grade —';
-  }, [form.level, form.stream]);
+    const standard = form.standard.trim();
+    const stream = form.streamSection.trim().toUpperCase();
+    return standard && stream ? `Standard ${standard}${stream}` : 'Standard —';
+  }, [form.standard, form.streamSection]);
+
+  const deriveFromLegacy = (row: SchoolClassSummary) => {
+    const derived: { standard: string; streamSection: string; academicYear: string; warnings: string[] } = {
+      standard: row.level?.trim() ?? '',
+      streamSection: row.stream?.trim() ?? '',
+      academicYear: row.academicYear?.trim() ?? '',
+      warnings: [],
+    };
+
+    const namePattern = /(?:grade|standard)\s*([a-z0-9]+)\s*([a-z])?/i;
+    const codeParts = row.code?.split('-').map((item) => item.trim()) ?? [];
+    const nameMatch = row.name?.match(namePattern);
+
+    if (!derived.standard) {
+      derived.standard = nameMatch?.[1] ?? codeParts[1] ?? '';
+      if (!derived.standard) {
+        derived.warnings.push('Standard is missing from this legacy class. Please set it before saving.');
+      }
+    }
+    if (!derived.streamSection) {
+      derived.streamSection = (nameMatch?.[2] ?? codeParts[2] ?? '').toUpperCase();
+      if (!derived.streamSection) {
+        derived.warnings.push('Stream / Section is missing from this legacy class. Please set it before saving.');
+      }
+    }
+    if (!derived.academicYear) {
+      const yearFromName = row.name?.match(/\b(19|20)\d{2}\b/)?.[0] ?? '';
+      derived.academicYear = yearFromName || codeParts[3] || '';
+      if (!derived.academicYear) {
+        derived.warnings.push('Academic Year is missing from this legacy class. Please set it before saving.');
+      }
+    }
+
+    return derived;
+  };
 
   const openCreate = () => {
     setEditing(null);
     setForm(blankForm);
     setFormErrors({});
+    setLegacyNotice('');
     setOpen(true);
   };
 
   const openEdit = (row: SchoolClassSummary) => {
+    const derived = deriveFromLegacy(row);
     setEditing(row);
     setForm({
-      level: row.level || '',
-      academicYear: row.academicYear || '',
-      stream: row.stream || '',
+      standard: derived.standard,
+      academicYear: derived.academicYear,
+      streamSection: derived.streamSection,
       capacity: row.capacity ? String(row.capacity) : '',
       status: row.status || 'ACTIVE',
     });
+    setLegacyNotice(derived.warnings.join(' '));
     setFormErrors({});
     setOpen(true);
   };
 
   const validateForm = (): ClassFormErrors => {
     const errors: ClassFormErrors = {};
-    if (!form.level.trim()) {
-      errors.level = 'Grade / Level is required.';
+    if (!form.standard.trim()) {
+      errors.standard = 'Standard is required.';
     }
-    if (!form.stream.trim()) {
-      errors.stream = 'Stream / Section is required.';
+    if (!form.streamSection.trim()) {
+      errors.streamSection = 'Stream / Section is required.';
     }
     if (!form.academicYear.trim()) {
       errors.academicYear = 'Academic Year is required.';
@@ -129,8 +168,8 @@ export function ClassesPage() {
     }
 
     const payload: ClassUpsertPayload = {
-      gradeLevel: form.level.trim(),
-      streamSection: form.stream.trim().toUpperCase(),
+      standard: form.standard.trim(),
+      streamSection: form.streamSection.trim().toUpperCase(),
       academicYear: form.academicYear.trim(),
       capacity: form.capacity.trim() ? Number(form.capacity.trim()) : null,
       status: form.status,
@@ -148,6 +187,7 @@ export function ClassesPage() {
       setOpen(false);
       setForm(blankForm);
       setFormErrors({});
+      setLegacyNotice('');
       await load();
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to save class.'));
@@ -180,7 +220,7 @@ export function ClassesPage() {
       />
       <div className="card">
         <label>Search
-          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search by grade, stream, year, status" />
+          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search by standard, stream, year, status" />
         </label>
       </div>
       {feedback ? <p className="success-text">{feedback}</p> : null}
@@ -191,14 +231,18 @@ export function ClassesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Class</th><th>Grade</th><th>Stream</th><th>Year</th><th>Teacher</th><th>Learners</th><th>Subjects</th><th>Status</th><th>Actions</th>
+              <th>Class Name</th><th>Standard</th><th>Stream / Section</th><th>Academic Year</th><th>Capacity</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.map((item) => (
               <tr key={item.id}>
-                <td>{item.name}</td><td>{item.level || '-'}</td><td>{item.stream || '-'}</td><td>{item.academicYear || '-'}</td>
-                <td>{item.classTeacherName || '-'}</td><td>{item.learnerCount}</td><td>{item.subjectCount}</td><td>{item.status}</td>
+                <td>{item.name}</td>
+                <td>{item.level || 'Legacy data: update needed'}</td>
+                <td>{item.stream || 'Legacy data: update needed'}</td>
+                <td>{item.academicYear || 'Legacy data: update needed'}</td>
+                <td>{item.capacity ?? '-'}</td>
+                <td>{item.status}</td>
                 <td>
                   <div className="action-buttons">
                     <Link to={`/classes/${item.id}`}><button type="button">View</button></Link>
@@ -214,13 +258,13 @@ export function ClassesPage() {
 
       <FormModal title={editing ? 'Edit Class' : 'Add Class'} open={open && isAdmin} onClose={() => setOpen(false)}>
         <form className="form-grid" onSubmit={submit}>
-          <label>Grade / Level
-            <input value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} />
-            {formErrors.level ? <span className="field-error">{formErrors.level}</span> : null}
+          <label>Standard
+            <input value={form.standard} onChange={(e) => setForm((p) => ({ ...p, standard: e.target.value }))} />
+            {formErrors.standard ? <span className="field-error">{formErrors.standard}</span> : null}
           </label>
           <label>Stream / Section
-            <input value={form.stream} onChange={(e) => setForm((p) => ({ ...p, stream: e.target.value }))} />
-            {formErrors.stream ? <span className="field-error">{formErrors.stream}</span> : null}
+            <input value={form.streamSection} onChange={(e) => setForm((p) => ({ ...p, streamSection: e.target.value }))} />
+            {formErrors.streamSection ? <span className="field-error">{formErrors.streamSection}</span> : null}
           </label>
           <label>Academic Year
             <input value={form.academicYear} onChange={(e) => setForm((p) => ({ ...p, academicYear: e.target.value }))} />
@@ -235,6 +279,7 @@ export function ClassesPage() {
               {statuses.map((status) => <option key={status}>{status}</option>)}
             </select>
           </label>
+          {legacyNotice ? <p className="hint-text">{legacyNotice}</p> : null}
           <p className="hint-text"><strong>Class Name Preview:</strong> {classNamePreview}</p>
           <button type="submit" disabled={saving}>{saving ? 'Saving...' : editing ? 'Update Class' : 'Save Class'}</button>
         </form>
@@ -242,7 +287,7 @@ export function ClassesPage() {
 
       <FormModal title="Delete Class" open={Boolean(deleteTarget) && isAdmin} onClose={() => setDeleteTarget(null)}>
         <div className="form-grid">
-          <p>Delete class {deleteTarget?.name}? This action is blocked when dependencies exist.</p>
+          <p>Delete class {deleteTarget?.name}? This action is blocked when learners, exams, marks, or subjects are linked.</p>
           <div className="action-buttons">
             <button type="button" onClick={() => setDeleteTarget(null)}>Cancel</button>
             <button type="button" className="danger-button" onClick={() => void confirmDelete()}>Delete</button>
