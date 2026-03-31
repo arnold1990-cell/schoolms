@@ -5,19 +5,23 @@ import com.schoolms.classmanagement.SchoolClassRepository;
 import com.schoolms.common.AppException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StudentService {
     private final StudentRepository studentRepository;
     private final SchoolClassRepository schoolClassRepository;
 
     @Transactional
     public StudentResponse createStudent(StudentCreateRequest request) {
-        String admissionNumber = normalizeRequired(request.admissionNumber(), "Required field missing: admissionNumber");
+        log.info("Creating student request received: admissionNumber={}, firstName={}, lastName={}, schoolClassId={}, enrollmentDate={}, dateOfBirth={}",
+                request.admissionNumber(), request.firstName(), request.lastName(), request.schoolClassId(), request.enrollmentDate(), request.dateOfBirth());
+        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         ensureAdmissionNumberUnique(admissionNumber, null);
 
         Student student = new Student();
@@ -32,7 +36,7 @@ public class StudentService {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new AppException("Student not found", HttpStatus.NOT_FOUND));
 
-        String admissionNumber = normalizeRequired(request.admissionNumber(), "Required field missing: admissionNumber");
+        String admissionNumber = normalizeRequired(request.admissionNumber(), "Admission number is required");
         ensureAdmissionNumberUnique(admissionNumber, id);
 
         applyCreateOrUpdate(student, request, request.schoolClassId());
@@ -74,19 +78,19 @@ public class StudentService {
     }
 
     private void applyCreateOrUpdate(Student student, StudentCreateRequest request, Long schoolClassId) {
-        student.setFirstName(normalizeRequired(request.firstName(), "Required field missing: firstName"));
+        student.setFirstName(normalizeRequired(request.firstName(), "First name is required"));
         student.setMiddleName(trimToNull(request.middleName()));
-        student.setLastName(normalizeRequired(request.lastName(), "Required field missing: lastName"));
+        student.setLastName(normalizeRequired(request.lastName(), "Last name is required"));
         student.setPreferredName(trimToNull(request.preferredName()));
-        student.setGender(normalizeRequired(request.gender(), "Required field missing: gender"));
-        student.setDateOfBirth(requireValue(request.dateOfBirth(), "Required field missing: dateOfBirth"));
-        student.setGrade(normalizeRequired(request.grade(), "Required field missing: grade"));
-        student.setEnrollmentDate(requireValue(request.enrollmentDate(), "Required field missing: enrollmentDate"));
-        student.setGuardianName(normalizeRequired(request.guardianName(), "Required field missing: guardianName"));
-        student.setGuardianRelationship(normalizeRequired(request.guardianRelationship(), "Required field missing: guardianRelationship"));
-        student.setGuardianPhone(normalizeRequired(request.guardianPhone(), "Required field missing: guardianPhone"));
-        student.setAddress(normalizeRequired(request.address(), "Required field missing: address"));
-        student.setStatus(requireValue(request.status(), "Required field missing: status"));
+        student.setGender(normalizeRequired(request.gender(), "Gender is required"));
+        student.setDateOfBirth(request.dateOfBirth());
+        student.setGrade(normalizeRequired(request.grade(), "Grade is required"));
+        student.setEnrollmentDate(requireValue(request.enrollmentDate(), "Enrollment date is required"));
+        student.setGuardianName(trimToNull(request.guardianName()));
+        student.setGuardianRelationship(trimToNull(request.guardianRelationship()));
+        student.setGuardianPhone(trimToNull(request.guardianPhone()));
+        student.setAddress(trimToNull(request.address()));
+        student.setStatus(requireValue(request.status(), "Status is required"));
         student.setNationality(trimToNull(request.nationality()));
         student.setNationalId(trimToNull(request.nationalId()));
         student.setPassportNumber(trimToNull(request.passportNumber()));
@@ -125,7 +129,7 @@ public class StudentService {
         student.setSponsorshipStatus(trimToNull(request.sponsorshipStatus()));
         student.setFeeCategory(trimToNull(request.feeCategory()));
         student.setNotes(trimToNull(request.notes()));
-        student.setSchoolClass(resolveSchoolClass(requireValue(schoolClassId, "Required field missing: classId")));
+        student.setSchoolClass(resolveSchoolClass(requireValue(schoolClassId, "Class is required")));
     }
 
     private void applyCreateOrUpdate(Student student, StudentUpdateRequest request, Long schoolClassId) {

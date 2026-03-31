@@ -25,17 +25,17 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ValidationErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
-        return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed", errors));
+        return ResponseEntity.badRequest().body(new ValidationErrorResponse(false, "Validation failed", errors));
     }
 
     @ExceptionHandler(BindException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleBind(BindException ex) {
+    public ResponseEntity<ValidationErrorResponse> handleBind(BindException ex) {
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
-        return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Validation failed", errors));
+        return ResponseEntity.badRequest().body(new ValidationErrorResponse(false, "Validation failed", errors));
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
             status = HttpStatus.CONFLICT;
         } else if (normalized.contains("school_class_id")) {
             if (normalized.contains("not-null")) {
-                message = "Required field missing: classId";
+                message = "Class is required";
             } else {
                 message = "Selected class does not exist";
             }
@@ -67,31 +67,21 @@ public class GlobalExceptionHandler {
             status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("not-null")) {
             if (normalized.contains("admission_number")) {
-                message = "Required field missing: admissionNumber";
+                message = "Admission number is required";
             } else if (normalized.contains("first_name")) {
-                message = "Required field missing: firstName";
+                message = "First name is required";
             } else if (normalized.contains("last_name")) {
-                message = "Required field missing: lastName";
+                message = "Last name is required";
             } else if (normalized.contains("gender")) {
-                message = "Required field missing: gender";
+                message = "Gender is required";
             } else if (normalized.contains("school_class_id")) {
-                message = "Required field missing: classId";
+                message = "Class is required";
             } else if (normalized.contains("enrollment_date")) {
-                message = "Required field missing: enrollmentDate";
-            } else if (normalized.contains("date_of_birth")) {
-                message = "Required field missing: dateOfBirth";
-            } else if (normalized.contains("guardian_name")) {
-                message = "Required field missing: guardianName";
-            } else if (normalized.contains("guardian_relationship")) {
-                message = "Required field missing: guardianRelationship";
-            } else if (normalized.contains("guardian_phone")) {
-                message = "Required field missing: guardianPhone";
-            } else if (normalized.contains("address")) {
-                message = "Required field missing: address";
+                message = "Enrollment date is required";
             } else if (normalized.contains("grade")) {
-                message = "Required field missing: grade";
+                message = "Grade is required";
             } else if (normalized.contains("status")) {
-                message = "Required field missing: status";
+                message = "Status is required";
             } else {
                 message = "Required field missing";
             }

@@ -49,6 +49,7 @@ interface SchoolClass {
 interface ApiErrorData {
   message?: string;
   data?: Record<string, string>;
+  errors?: Record<string, string>;
 }
 
 const statuses: StudentStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED', 'TRANSFERRED', 'GRADUATED'];
@@ -112,6 +113,7 @@ export function StudentsPage() {
   const [form, setForm] = useState<StudentForm>(blankForm);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [classesError, setClassesError] = useState('');
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
@@ -135,9 +137,15 @@ export function StudentsPage() {
   }, [selectedStudent]);
 
   const loadClasses = useCallback(async () => {
-    const response = await api.get('/api/classes');
-    const allClasses = unwrapList<SchoolClass>(response.data);
-    setClasses(allClasses.filter((item) => (item.status ?? 'ACTIVE') === 'ACTIVE'));
+    setClassesError('');
+    try {
+      const response = await api.get('/api/classes');
+      const allClasses = unwrapList<SchoolClass>(response.data);
+      setClasses(allClasses.filter((item) => (item.status ?? 'ACTIVE') === 'ACTIVE'));
+    } catch (err) {
+      setClasses([]);
+      setClassesError(apiErrorMessage(err, 'Failed to load classes required for student creation.'));
+    }
   }, []);
 
   useEffect(() => {
@@ -157,16 +165,15 @@ export function StudentsPage() {
       ['firstName', 'First name is required.'],
       ['lastName', 'Last name is required.'],
       ['gender', 'Gender is required.'],
-      ['dateOfBirth', 'Date of birth is required.'],
       ['grade', 'Grade is required.'],
       ['schoolClassId', 'Class is required.'],
       ['enrollmentDate', 'Enrollment date is required.'],
-      ['guardianName', 'Guardian name is required.'],
-      ['guardianRelationship', 'Guardian relationship is required.'],
-      ['guardianPhone', 'Guardian phone is required.'],
-      ['address', 'Address is required.'],
       ['status', 'Status is required.'],
     ];
+
+    if (classes.length === 0) {
+      errors.schoolClassId = classesError || 'Please select a class.';
+    }
 
     required.forEach(([field, message]) => {
       if (!String(form[field] ?? '').trim()) errors[field] = message;
@@ -213,6 +220,11 @@ export function StudentsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const normalizeDateForApi = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setFeedback('');
@@ -226,10 +238,9 @@ export function StudentsPage() {
       preferredName: optionalStringOrNull(form.preferredName),
       admissionNumber: form.admissionNumber.trim(),
       gender: form.gender.trim(),
-      dateOfBirth: form.dateOfBirth,
-      classId: Number(form.schoolClassId),
+      dateOfBirth: normalizeDateForApi(form.dateOfBirth),
       grade: form.grade.trim(),
-      enrollmentDate: form.enrollmentDate,
+      enrollmentDate: normalizeDateForApi(form.enrollmentDate),
       status: form.status,
       schoolClassId: Number(form.schoolClassId),
       guardianName: optionalStringOrNull(form.guardianName),
@@ -245,6 +256,7 @@ export function StudentsPage() {
       pickupPoint: optionalStringOrNull(form.pickupPoint),
       routeName: optionalStringOrNull(form.routeName),
     };
+    console.debug('[StudentsPage] submitting /api/students payload', payload);
 
     try {
       setSaving(true);
@@ -259,7 +271,7 @@ export function StudentsPage() {
       await loadStudents();
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorData>;
-      const backendErrors = axiosError.response?.data?.data;
+      const backendErrors = axiosError.response?.data?.errors ?? axiosError.response?.data?.data;
       if (backendErrors) {
         setFormErrors(backendErrors);
       }
@@ -329,7 +341,7 @@ export function StudentsPage() {
               <label>First name<input value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />{formErrors.firstName ? <span className="field-error">{formErrors.firstName}</span> : null}</label>
               <label>Last name<input value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} />{formErrors.lastName ? <span className="field-error">{formErrors.lastName}</span> : null}</label>
               <label>Gender<input value={form.gender} onChange={(e) => setField('gender', e.target.value)} />{formErrors.gender ? <span className="field-error">{formErrors.gender}</span> : null}</label>
-              <label>Date of birth<input type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />{formErrors.dateOfBirth ? <span className="field-error">{formErrors.dateOfBirth}</span> : null}</label>
+              <label>Date of birth (optional)<input type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />{formErrors.dateOfBirth ? <span className="field-error">{formErrors.dateOfBirth}</span> : null}</label>
               <label>Grade<input value={form.grade} onChange={(e) => setField('grade', e.target.value)} />{formErrors.grade ? <span className="field-error">{formErrors.grade}</span> : null}</label>
               <label>Class
                 <select value={form.schoolClassId} onChange={(e) => setField('schoolClassId', e.target.value)}>
@@ -339,12 +351,9 @@ export function StudentsPage() {
                   ))}
                 </select>
                 {formErrors.schoolClassId ? <span className="field-error">{formErrors.schoolClassId}</span> : null}
+                {classesError ? <span className="field-error">{classesError}</span> : null}
               </label>
               <label>Enrollment date<input type="date" value={form.enrollmentDate} onChange={(e) => setField('enrollmentDate', e.target.value)} />{formErrors.enrollmentDate ? <span className="field-error">{formErrors.enrollmentDate}</span> : null}</label>
-              <label>Guardian name<input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} />{formErrors.guardianName ? <span className="field-error">{formErrors.guardianName}</span> : null}</label>
-              <label>Guardian relationship<input value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)} />{formErrors.guardianRelationship ? <span className="field-error">{formErrors.guardianRelationship}</span> : null}</label>
-              <label>Guardian phone<input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} />{formErrors.guardianPhone ? <span className="field-error">{formErrors.guardianPhone}</span> : null}</label>
-              <label>Address<input value={form.address} onChange={(e) => setField('address', e.target.value)} />{formErrors.address ? <span className="field-error">{formErrors.address}</span> : null}</label>
               <label>Status<select value={form.status} onChange={(e) => setField('status', e.target.value)}><option value="">Select status</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>{formErrors.status ? <span className="field-error">{formErrors.status}</span> : null}</label>
             </div>
           </div>
@@ -354,6 +363,10 @@ export function StudentsPage() {
             <div className="grid two-col-grid">
               <label>Middle name<input value={form.middleName} onChange={(e) => setField('middleName', e.target.value)} /></label>
               <label>Preferred name<input value={form.preferredName} onChange={(e) => setField('preferredName', e.target.value)} /></label>
+              <label>Guardian name<input value={form.guardianName} onChange={(e) => setField('guardianName', e.target.value)} /></label>
+              <label>Guardian relationship<input value={form.guardianRelationship} onChange={(e) => setField('guardianRelationship', e.target.value)} /></label>
+              <label>Guardian phone<input value={form.guardianPhone} onChange={(e) => setField('guardianPhone', e.target.value)} /></label>
+              <label>Address<input value={form.address} onChange={(e) => setField('address', e.target.value)} /></label>
               <label>Nationality<input value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} /></label>
               <label className="full-width">Notes<textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} /></label>
             </div>
