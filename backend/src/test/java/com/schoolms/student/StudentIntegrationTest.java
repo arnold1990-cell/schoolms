@@ -114,7 +114,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.firstName").exists());
+                .andExpect(jsonPath("$.errors.firstName").exists());
     }
 
     @Test
@@ -127,7 +127,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.lastName").exists());
+                .andExpect(jsonPath("$.errors.lastName").exists());
     }
 
     @Test
@@ -140,7 +140,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.admissionNumber").exists());
+                .andExpect(jsonPath("$.errors.admissionNumber").exists());
     }
 
     @Test
@@ -153,7 +153,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.gender").exists());
+                .andExpect(jsonPath("$.errors.gender").exists());
     }
 
     @Test
@@ -166,7 +166,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.grade").exists());
+                .andExpect(jsonPath("$.errors.grade").exists());
     }
 
     @Test
@@ -179,7 +179,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.enrollmentDate").exists());
+                .andExpect(jsonPath("$.errors.enrollmentDate").exists());
     }
 
     @Test
@@ -192,7 +192,7 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.status").exists());
+                .andExpect(jsonPath("$.errors.status").exists());
     }
 
     @Test
@@ -221,7 +221,37 @@ class StudentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.schoolClassId").exists());
+                .andExpect(jsonPath("$.errors.schoolClassId").exists());
+    }
+
+    @Test
+    void createStudentWithOptionalFieldsNullOrBlankPasses() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-OPT-NULL");
+        payload.put("middleName", "");
+        payload.put("preferredName", " ");
+        payload.put("dateOfBirth", null);
+        payload.put("guardianName", "");
+        payload.put("guardianRelationship", " ");
+        payload.put("guardianPhone", "");
+        payload.put("address", " ");
+        payload.put("nationality", "");
+        payload.put("notes", " ");
+        payload.put("phoneNumber", "");
+        payload.put("email", "");
+        payload.put("medicalConditions", " ");
+        payload.put("usesTransport", null);
+        payload.put("pickupPoint", " ");
+        payload.put("routeName", "");
+
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.admissionNumber").value("ADM-OPT-NULL"))
+                .andExpect(jsonPath("$.data.dateOfBirth").isEmpty())
+                .andExpect(jsonPath("$.data.guardianName").isEmpty());
     }
 
     @Test
@@ -290,14 +320,9 @@ class StudentIntegrationTest {
         payload.put("lastName", "Doe");
         payload.put("admissionNumber", admissionNumber);
         payload.put("gender", "MALE");
-        payload.put("dateOfBirth", "2014-02-01");
         payload.put("grade", "Standard 5");
         payload.put("schoolClassId", classId);
         payload.put("enrollmentDate", "2026-03-30");
-        payload.put("guardianName", "Jane Doe");
-        payload.put("guardianRelationship", "Mother");
-        payload.put("guardianPhone", "555-0001");
-        payload.put("address", "Main Street");
         payload.put("status", "ACTIVE");
         return payload;
     }
