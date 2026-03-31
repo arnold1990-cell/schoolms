@@ -53,33 +53,47 @@ public class GlobalExceptionHandler {
             message = "Admission number already exists";
             status = HttpStatus.CONFLICT;
         } else if (normalized.contains("school_class_id")) {
-            message = "Selected class does not exist";
+            if (normalized.contains("not-null")) {
+                message = "Required field missing: classId";
+            } else {
+                message = "Selected class does not exist";
+            }
             status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("grade")) {
             message = "Selected class is missing a grade mapping";
             status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("status")) {
-            message = "Status is required";
+            message = "Required field missing: status";
             status = HttpStatus.BAD_REQUEST;
         } else if (normalized.contains("not-null")) {
             if (normalized.contains("admission_number")) {
-                message = "Admission number is required";
+                message = "Required field missing: admissionNumber";
             } else if (normalized.contains("first_name")) {
-                message = "First name is required";
+                message = "Required field missing: firstName";
             } else if (normalized.contains("last_name")) {
-                message = "Last name is required";
+                message = "Required field missing: lastName";
             } else if (normalized.contains("gender")) {
-                message = "Gender is required";
+                message = "Required field missing: gender";
             } else if (normalized.contains("school_class_id")) {
-                message = "Class is required";
+                message = "Required field missing: classId";
             } else if (normalized.contains("enrollment_date")) {
-                message = "Enrollment date is required";
+                message = "Required field missing: enrollmentDate";
+            } else if (normalized.contains("date_of_birth")) {
+                message = "Required field missing: dateOfBirth";
+            } else if (normalized.contains("guardian_name")) {
+                message = "Required field missing: guardianName";
+            } else if (normalized.contains("guardian_relationship")) {
+                message = "Required field missing: guardianRelationship";
+            } else if (normalized.contains("guardian_phone")) {
+                message = "Required field missing: guardianPhone";
+            } else if (normalized.contains("address")) {
+                message = "Required field missing: address";
             } else if (normalized.contains("grade")) {
-                message = "Grade is required";
+                message = "Required field missing: grade";
             } else if (normalized.contains("status")) {
-                message = "Status is required";
+                message = "Required field missing: status";
             } else {
-                message = "A required field is missing";
+                message = "Required field missing";
             }
             status = HttpStatus.BAD_REQUEST;
         } else {

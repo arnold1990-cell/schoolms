@@ -1,24 +1,25 @@
 package com.schoolms.student;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 
 public record StudentCreateRequest(
-        @NotBlank(message = "First name is required") String firstName,
+        @NotBlank(message = "Required field missing: firstName") String firstName,
         String middleName,
-        @NotBlank(message = "Last name is required") String lastName,
+        @NotBlank(message = "Required field missing: lastName") String lastName,
         String preferredName,
-        @NotBlank(message = "Admission number is required") String admissionNumber,
-        @NotBlank(message = "Gender is required") String gender,
-        LocalDate dateOfBirth,
-        @NotBlank(message = "Grade is required") String grade,
-        @NotNull(message = "Enrollment date is required") LocalDate enrollmentDate,
-        String guardianName,
-        String guardianRelationship,
-        String guardianPhone,
-        String address,
-        @NotNull(message = "Status is required") StudentStatus status,
+        @NotBlank(message = "Required field missing: admissionNumber") String admissionNumber,
+        @NotBlank(message = "Required field missing: gender") String gender,
+        @NotNull(message = "Required field missing: dateOfBirth") LocalDate dateOfBirth,
+        @NotBlank(message = "Required field missing: grade") String grade,
+        @NotNull(message = "Required field missing: enrollmentDate") LocalDate enrollmentDate,
+        @NotBlank(message = "Required field missing: guardianName") String guardianName,
+        @NotBlank(message = "Required field missing: guardianRelationship") String guardianRelationship,
+        @NotBlank(message = "Required field missing: guardianPhone") String guardianPhone,
+        @NotBlank(message = "Required field missing: address") String address,
+        @NotNull(message = "Required field missing: status") StudentStatus status,
         String nationality,
         String nationalId,
         String passportNumber,
@@ -57,6 +58,6 @@ public record StudentCreateRequest(
         String sponsorshipStatus,
         String feeCategory,
         String notes,
-        Long schoolClassId
+        @NotNull(message = "Required field missing: classId") @JsonAlias("classId") Long schoolClassId
 ) {
 }
