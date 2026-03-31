@@ -78,6 +78,21 @@ class StudentIntegrationTest {
     }
 
     @Test
+    void createStudentWithClassIdAliasPasses() throws Exception {
+        Map<String, Object> payload = corePayload("ADM-CLASS-ALIAS");
+        payload.remove("schoolClassId");
+        payload.put("classId", classId);
+
+        mockMvc.perform(post("/api/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.schoolClassId").value(classId));
+    }
+
+    @Test
     void createStudentWithAllFieldsPasses() throws Exception {
         mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + adminToken)
@@ -197,7 +212,7 @@ class StudentIntegrationTest {
     }
 
     @Test
-    void createStudentWithNullSchoolClassPasses() throws Exception {
+    void createStudentWithNullSchoolClassFails() throws Exception {
         Map<String, Object> payload = corePayload("ADM-NO-CLASS");
         payload.put("schoolClassId", null);
 
@@ -205,24 +220,23 @@ class StudentIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.schoolClassId").isEmpty());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.schoolClassId").exists());
     }
 
     @Test
     void updateStudentWithOptionalFieldsEmptyPasses() throws Exception {
         long studentId = createStudentAndGetId(corePayload("ADM-UPD-1"));
         Map<String, Object> payload = corePayload("ADM-UPD-1");
-        payload.put("guardianName", "");
+        payload.put("middleName", "");
         payload.put("notes", " ");
-        payload.put("schoolClassId", null);
 
         mockMvc.perform(put("/api/students/{id}", studentId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.guardianName").isEmpty())
+                .andExpect(jsonPath("$.data.middleName").isEmpty())
                 .andExpect(jsonPath("$.data.notes").isEmpty());
     }
 
@@ -275,9 +289,15 @@ class StudentIntegrationTest {
         payload.put("firstName", "John");
         payload.put("lastName", "Doe");
         payload.put("admissionNumber", admissionNumber);
-        payload.put("gender", "Male");
+        payload.put("gender", "MALE");
+        payload.put("dateOfBirth", "2014-02-01");
         payload.put("grade", "Standard 5");
+        payload.put("schoolClassId", classId);
         payload.put("enrollmentDate", "2026-03-30");
+        payload.put("guardianName", "Jane Doe");
+        payload.put("guardianRelationship", "Mother");
+        payload.put("guardianPhone", "555-0001");
+        payload.put("address", "Main Street");
         payload.put("status", "ACTIVE");
         return payload;
     }
